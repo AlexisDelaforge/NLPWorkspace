@@ -1,3 +1,1 @@
-# test
-
-a = 12
+from .TransformerEncoder import TransformerModel
