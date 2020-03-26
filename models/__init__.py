@@ -1,1 +1,2 @@
 from .TransformerEncoder import TransformerModel
+from .modules.PositionalEncoding import PositionalEncoding

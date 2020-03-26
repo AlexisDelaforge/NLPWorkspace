@@ -2,6 +2,8 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from models.modules import PositionalEncoding
+
 
 # Code from : https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 # Change : No
