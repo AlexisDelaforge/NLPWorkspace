@@ -5,6 +5,7 @@ import torch.nn as nn
 # Code from : https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 # Change : No
 
+
 class PositionalEncoding(nn.Module):
 
     def __init__(self, d_model, dropout=0.1, max_len=5000):

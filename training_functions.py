@@ -37,7 +37,7 @@ def full_train(parameters):
                 if batch.num % parameters['log_interval_batch'] == 0 and batch > 0: # batch.num doit exister voir dataloader !!!
                     cur_loss = total_loss / parameters['log_interval_batch']
                     elapsed = time.time() - start_time
-                    print('| epoch {:3d} | {:5d}/{:5d} batches | '
+                    functions.add_to_execution_file('| epoch {:3d} | {:5d}/{:5d} batches | '
                           'lr {:02.2f} | ms/batch {:5.2f} | '
                           'loss {:5.2f} | ppl {:8.2f}'.format(
                         epoch, batch.num, parameters['batchs'] // bptt, scheduler.get_lr()[0],

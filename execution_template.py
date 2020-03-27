@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import functions
 from models import TransformerModel
+from torch.utils import data
 
 # Should set all parameters of model in this dictionary
 
@@ -39,23 +40,45 @@ scheduler_params = dict(
     last_epoch=-1
 )
 
+dataloader_params = dict(
+    dataset=None, # Will change to take dataset
+    batch_size=1,
+    shuffle=False,
+    sampler=None,
+    batch_sampler=None,
+    num_workers=0,
+    collate_fn=None,
+    pin_memory=False,
+    drop_last=False,
+    timeout=0,
+    worker_init_fn=None
+)
+
 parameters = dict(
-    execution_name="TextExecution",
-    epochs="number_of_epochs",
-    lr=5,
-    criterion='criterion',
+    execution_name="TextExecution", # Always
+    epochs=10, # Always
+    lr=5, # Always
     criterion_params=criterion_params,
     optimizer_params=optimizer_params,
     scheduler_params=scheduler_params,
     model_params=model_params,
-    batch_size = 20,
-    eval_batch_size = 10,
+    batch_size = 20, # Always
+    eval_batch_size = 10, # Always
+    split_sets = [.90,.08,.02] # Use to set train, eval and test dataset size, should be egal to 1
 )
 
 parameters['model'] = TransformerModel(**parameters['model_params'])
 parameters['criterion'] = nn.CrossEntropyLoss()
 parameters['optimizer'] = torch.optim.SGD(parameters['model'].parameters(), **functions.dict_change(optimizer_params, {'lr':parameters['lr']}))
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(parameters['optimizer'], step_size=1.0, **functions.dict_less(scheduler_params, ['optimizer','step_size']))
+
+dataloader_params['dataset'] = "appel dataset"
+
+train_set, valid_set, test_set = torch.utils.data.random_split(dataloader_params['dataset'], functions.split_values(len(dataloader_params['dataset']), parameters['split_sets']))
+
+train_data_loader = data.DataLoader(**functions.dict_change(optimizer_params, {'dataset':train_set}))
+valid_data_loader = data.DataLoader(**functions.dict_change(optimizer_params, {'dataset':valid_set}))
+test_data_loader = data.DataLoader(**functions.dict_change(optimizer_params, {'dataset':test_set}))
 
 # Define the function to do for each batch
 # The input form is :
