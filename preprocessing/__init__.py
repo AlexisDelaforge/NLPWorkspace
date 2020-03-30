@@ -1,0 +1,1 @@
+from .collate_fn import classic_collate_fn

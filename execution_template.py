@@ -6,6 +6,10 @@ import functions
 from models import TransformerModel
 from torch.utils import data
 
+# Set the device parameters
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = "cuda:0"
+
 # Should set all parameters of model in this dictionary
 
 model_params = dict(

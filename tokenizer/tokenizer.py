@@ -1,5 +1,5 @@
 # List all tokenizer that I will use [to do]
-
+# Peut-être à faire en classses (à voir)
 
 def tokenizer(type):
     if type == 'spacy':
