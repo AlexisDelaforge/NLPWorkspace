@@ -5,10 +5,12 @@ import torch.nn.functional as F
 import functions
 from models import TransformerModel
 from torch.utils import data
+import dataset
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = "cuda:0"
+print()
 
 # Should set all parameters of model in this dictionary
 
@@ -28,7 +30,7 @@ criterion_params = dict()
 # Should set all parameters of optimizer in this dictionary
 
 optimizer_params = dict(
-    lr=None, # will change to take parameters['lr']
+    lr=None,  # will change to take parameters['lr']
     momentum=0,
     dampening=0,
     weight_decay=0,
@@ -71,29 +73,33 @@ parameters = dict(
     split_sets = [.90,.08,.02] # Use to set train, eval and test dataset size, should be egal to 1
 )
 
+functions.save_execution_file(parameters)
+
+functions.add_to_execution_file(parameters, 'Code execute on '+str(device))
+
 parameters['model'] = TransformerModel(**parameters['model_params'])
 parameters['criterion'] = nn.CrossEntropyLoss()
 parameters['optimizer'] = torch.optim.SGD(parameters['model'].parameters(), **functions.dict_change(optimizer_params, {'lr':parameters['lr']}))
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(parameters['optimizer'], step_size=1.0, **functions.dict_less(scheduler_params, ['optimizer','step_size']))
 
-dataloader_params['dataset'] = "appel dataset"
+dataloader_params['dataset'] = dataset.AllSentencesDataset(path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv', text_column=0)
 
 train_set, valid_set, test_set = torch.utils.data.random_split(dataloader_params['dataset'], functions.split_values(len(dataloader_params['dataset']), parameters['split_sets']))
 
-train_data_loader = data.DataLoader(**functions.dict_change(optimizer_params, {'dataset':train_set}))
-valid_data_loader = data.DataLoader(**functions.dict_change(optimizer_params, {'dataset':valid_set}))
-test_data_loader = data.DataLoader(**functions.dict_change(optimizer_params, {'dataset':test_set}))
+train_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': train_set}))
+valid_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': valid_set}))
+test_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': test_set}))
 
 # Define the function to do for each batch
 # The input form is :
+
+print(test_data_loader.dataset.__len__()) # Voir pourquoi _= ça marche pas
 
 # The output should have the form :
 #
 
 def one_train(batch):
     return batch
-
-functions.save_execution_file(parameters)
 
 #model = TransformerModel()
 

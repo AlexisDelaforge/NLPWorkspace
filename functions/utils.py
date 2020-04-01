@@ -46,12 +46,14 @@ def dict_change(dictionary, argument_to_update):
 
 def split_values(dataset_length, listed_len):
     total_listed = 0
+    k = 0
     for i in listed_len:
         if i == (len(listed_len) - 1):
-            listed_len[i] = len(dataset_length) - total_listed
+            listed_len[k] = dataset_length - total_listed
         else:
-            listed_len[i] = round(listed_len[i] * len(dataset_length))
-            total_listed += listed_len[i]
+            listed_len[k] = round(listed_len[k] * dataset_length)
+            total_listed += listed_len[k]
+        k += 1
     return listed_len
 
 
@@ -67,6 +69,7 @@ class Vocabulary:
         self.name = name
         self.lower = lower
         self.word2index = {}
+        self.index2word = {}
         self.word2count = {}
         self.index2word = {0: self.sos, 1: self.eos, 2: self.pad, 3: self.unk}
         self.n_words = 4  # Count SOS and EOS
@@ -82,6 +85,7 @@ class Vocabulary:
             self.word2index[word] = self.n_words
             self.word2count[word] = 1
             self.index2word[self.n_words] = word
+            self.word2index[word] = self.n_words
             self.n_words += 1
         else:
             self.word2count[word] += 1

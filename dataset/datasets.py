@@ -1,58 +1,94 @@
-from torch.utils import data
+from torch.utils.data import Dataset
 import pandas as pd
 from functions.utils import Vocabulary
 from tokenizer import tokenizer
 
+
 # My Code
 
 
-class AllSentencesDataset(data.Dataset): # A retravailler
-    def __init__(self, path, embedder, name=None):
-        self.path = path
-        with open(self.path) as f:
-            self.len =  sum(1 for line in f)
-        self.embedder = embedder
+class AllSentencesDataset(Dataset):  # A retravailler
+    def __init__(self, path, text_column=0, id_column=None, name=None, sos='<sos>', eos='<eos>',
+                 pad='<pad>', unk='<unk>'):
         self.name = name
-
-    def __getitem__(self, index):
-        all_index = list(range(self.len))
-        all_index.pop(index)
-        all_index.pop(0)
-        line = pd.read_csv(self.path, header=0, skiprows=all_index)
-        line = ['<sos>']+list(tokenizer(line['Source'][0]))+['<eos>']
-        return self.embedder.tensorize(line)
-
-    def __len__(self):
-        return self.len
-
-    def name(self, name=None):
-        if name is None :
-            return self.name
-        else :
-            self.name = name
-            return self.name
-
-# My Code, TextTargetDataset uses Pandas.read_csv to open a datafram with two columns Text and Target
-
-class TextTargetDataset(data.Dataset):
-    def __init__(self, path, text_column = 0, target_column = 1, header=0, sos='<sos>', eos='<eos>', pad='<pad>', unk='<unk>'):
         self.path = path
-        self.data = pd.read_csv(path, header=header)
-        self.data.columns[text_column] = 'text'
-        self.data.columns[target_column] = 'target'
-        self.vocabulary = Vocabulary(sos='<sos>', eos='<eos>', pad='<pad>', unk='<unk>', tok_type='spacy',lower=True)
+        if id_column is None:
+            self.data = pd.read_csv(path, usecols=[text_column], sep='\t')
+            self.id_column = False
+            self.data.columns = ['text']
+        else:
+            self.data = pd.read_csv(path, usecols=[text_column, id_column], sep='\t')
+            self.id_column = True
+            self.data.columns = ['text', 'id']
         self.sos = sos
         self.eos = eos
         self.pad = pad
         self.unk = unk
 
     def __getitem__(self, index):
-        all_index = list(range(self.len))
-        all_index.pop(index)
-        all_index.pop(0)
-        line = pd.read_csv(self.path, header=0, skiprows=all_index)
-        line = ['<sos>']+list(tokenizer(line['Source'][0]))+['<eos>']
-        return self.embedder.tensorize(line)
+        if self.id_column:
+            sample = self.data.loc[self.data['id'] == index]
+            sample = {'features': sample['text'], 'target': sample['text'], 'id': sample['id']}
+        else:
+            sample = self.data.iloc(index)
+            sample = {'features': sample['text'], 'target': sample['text']}
+        sample['features'] = [self.sos] + list(self.vocabulary.tokenizer(sample['features'])) + [self.eos]
+        return sample
+
+    def __len__(self):
+        return int(len(self.data))
+
+    def name(self, name=None):
+        if name is None:
+            return self.name
+        else:
+            self.name = name
+            return self.name
+
+
+# My Code, TextTargetDataset uses Pandas.read_csv to open a datafram with two columns Text and Target
+
+class TextTargetDataset(Dataset):
+    def __init__(self, path, text_column=0, target_column=1, id_column=None, sos='<sos>', eos='<eos>',
+                 pad='<pad>', unk='<unk>', name=None):
+        self.name = name
+        self.path = path
+        if id_column is None:
+            self.data = pd.read_csv(path, usecols=[text_column, target_column])
+            self.id_column = False
+        else:
+            self.data = pd.read_csv(path, usecols=[text_column, target_column, id_column])
+            self.data.columns[id_column] = 'id'
+            self.id_column = True
+        self.data.columns[text_column] = 'text'
+        self.data.columns[target_column] = 'target'
+        self.sos = sos
+        self.eos = eos
+        self.pad = pad
+        self.unk = unk
+        self.vocabulary = Vocabulary(sos='<sos>', eos='<eos>', pad='<pad>', unk='<unk>', tok_type='spacy', lower=True)
+
+    def __getitem__(self, index):
+        if self.id_column:
+            sample = self.data.loc[self.data['id'] == index]
+            sample = {'features': sample['text'], 'target': sample['target'], 'id': sample['id']}
+        else:
+            sample = self.data.iloc(index)
+            sample = {'features': sample['text'], 'target': sample['target']}
+        sample['features'] = [self.sos] + list(self.vocabulary.tokenizer(sample['features'])) + [self.eos]
+        return sample
+
+    def __len__(self):
+        return int(len(self.data))
+
+    def name(self, name=None):
+        if name is None:
+            return self.name
+        else:
+            self.name = name
+            return self.name
 
 #    def create_split(self, split_list):
 
+# class Batch():
+# def __init__(self, path, text_column=0, target_column=1, header=0, sos='<sos>', eos='<eos>', pad='<pad>', unk='<unk>'):

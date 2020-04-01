@@ -13,7 +13,6 @@ def classic_collate_fn(batch):
     padding_tensor = torch.tensor([0] * embedding_dim, dtype=torch.float)  # .to(device) # go to global
     for sentence in range(len(batch)):
         if max_length != batch[sentence].shape[0]:
-            padded_tensor = torch.stack([padding_tensor] * (max_length - batch[sentence].shape[0]),
-                                        dim=0)  # .to(device)
+            padded_tensor = torch.stack([padding_tensor] * (max_length - batch[sentence].shape[0]), dim=0)  # .to(device)
             batch[sentence] = torch.cat((batch[sentence], padded_tensor), dim=0)
     return batch
