@@ -60,7 +60,7 @@ def split_values(dataset_length, listed_len):
 # My code
 
 class Vocabulary:
-    def __init__(self, name, eos='<eos>', sos='<sos>', unk='<unk>', pad='<pad>', tok_type='spacy', lower=True):
+    def __init__(self, name=None, eos='<eos>', sos='<sos>', unk='<unk>', pad='<pad>', tok_type='spacy', lower=True):
         self.tokenizer = tokenizer(tok_type)
         self.eos = eos
         self.sos = sos
@@ -68,11 +68,14 @@ class Vocabulary:
         self.unk = unk
         self.name = name
         self.lower = lower
-        self.word2index = {}
-        self.index2word = {}
+        self.word2index = {self.sos: 0, self.eos: 1, self.pad: 2, self.unk: 3}
         self.word2count = {}
         self.index2word = {0: self.sos, 1: self.eos, 2: self.pad, 3: self.unk}
         self.n_words = 4  # Count SOS and EOS
+
+    def build_vocab(self, sentences, min_count = 1):
+        for sentence in sentences:
+            self.add_sentence(sentence)
 
     def add_sentence(self, sentence):
         for word in list(tokenizer(sentence)):
@@ -89,5 +92,12 @@ class Vocabulary:
             self.n_words += 1
         else:
             self.word2count[word] += 1
+
+    def import_vocabulary(self, word2index, word2count, name=None):
+        self.name = name
+        self.word2index = word2index
+        self.index2word = {value: key for key, value in self.word2index.items()}
+        self.n_words = len(self.word2index)
+        self.word2count = word2count
 
 # My code

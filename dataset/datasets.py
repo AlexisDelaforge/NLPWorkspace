@@ -1,15 +1,15 @@
 from torch.utils.data import Dataset
 import pandas as pd
 from functions.utils import Vocabulary
-from tokenizer import tokenizer
+from tokenizer import tokenizer as tk
 
 
 # My Code
 
 
 class AllSentencesDataset(Dataset):  # A retravailler
-    def __init__(self, path, text_column=0, id_column=None, name=None, sos='<sos>', eos='<eos>',
-                 pad='<pad>', unk='<unk>'):
+    def __init__(self, path, text_column=1, id_column=None, name=None, sos='<sos>', eos='<eos>',
+                 pad='<pad>', unk='<unk>', tok_type='spacy'):
         self.name = name
         self.path = path
         if id_column is None:
@@ -24,19 +24,34 @@ class AllSentencesDataset(Dataset):  # A retravailler
         self.eos = eos
         self.pad = pad
         self.unk = unk
+        self.tokenizer = tk(tok_type)
+        self.vocabulary = None
+        self.embedder = None
 
     def __getitem__(self, index):
-        if self.id_column:
+        if self.id_column: # A refaire quand le else est ok
             sample = self.data.loc[self.data['id'] == index]
-            sample = {'features': sample['text'], 'target': sample['text'], 'id': sample['id']}
+            text = [str(i.text) for i in list(self.tokenizer(sample['text']))]
+            target = sample['text']
+            id = sample['id']
         else:
-            sample = self.data.iloc(index)
-            sample = {'features': sample['text'], 'target': sample['text']}
-        sample['features'] = [self.sos] + list(self.vocabulary.tokenizer(sample['features'])) + [self.eos]
-        return sample
+            sample = self.data.loc[index]
+            text = [str(i.text) for i in list(self.tokenizer(sample['text']))]
+            target = text
+
+        #sample['features'] = [self.sos] + list(map(str, list(self.tokenizer(sample['features'])))) + [self.eos]
+        #print(list(map(str, self.tokenizer(sample['features']))))
+        return text, target
 
     def __len__(self):
         return int(len(self.data))
+
+    def set_vocabulary(self, vocabulary):
+        self.vocabulary = vocabulary
+
+    def set_embedder(self, embedder):
+        self.embedder = embedder
+        self.vocabulary = embedder.vocabulary
 
     def name(self, name=None):
         if name is None:

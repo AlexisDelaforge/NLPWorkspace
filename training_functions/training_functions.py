@@ -1,17 +1,17 @@
 import time
 import functions
 
+
 # Code from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 # Change : Yes
 
-def full_train(parameters):
-    criterion = parameters['criterion'] # useless
+def full_train(parameters, train_data_loader, valid_data_loader, one_train):
+    criterion = parameters['criterion']  # useless
     lr = parameters['lr']  # learning rate
     optimizer = parameters['optimizer']
     scheduler = parameters['scheduler'](**functions.dict_less(parameters['scheduler_params'], ['optimizer']))
 
     parameters['model'].train()  # Turn on the train mode
-
 
     total_loss = 0.
     start_time = time.time()
@@ -34,18 +34,20 @@ def full_train(parameters):
 
             total_loss += loss.item()
             if 'log_interval_batch' in parameters:
-                if batch.num % parameters['log_interval_batch'] == 0 and batch > 0: # batch.num doit exister voir dataloader !!!
+                if batch.num % parameters['log_interval_batch'] == 0 and batch > 0:  # batch.num doit exister voir dataloader !!!
                     cur_loss = total_loss / parameters['log_interval_batch']
                     elapsed = time.time() - start_time
                     functions.add_to_execution_file('| epoch {:3d} | {:5d}/{:5d} batches | '
-                          'lr {:02.2f} | ms/batch {:5.2f} | '
-                          'loss {:5.2f} | ppl {:8.2f}'.format(
+                                                    'lr {:02.2f} | ms/batch {:5.2f} | '
+                                                    'loss {:5.2f} | ppl {:8.2f}'.format(
                         epoch, batch.num, parameters['batchs'] // bptt, scheduler.get_lr()[0],
-                                      elapsed * 1000 / parameters['log_interval_batch'],
+                                          elapsed * 1000 / parameters['log_interval_batch'],
                         cur_loss, math.exp(cur_loss)))
                     total_loss = 0
                     start_time = time.time()
-            else :
+            else:
+                a = 1
+
 
 def evaluate(eval_model, data_source):
     eval_model.eval()  # Turn on the evaluation mode
