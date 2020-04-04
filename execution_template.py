@@ -8,21 +8,32 @@ import embedder
 import training_functions
 from torch.utils import data
 import dataset
+from preprocessing import classic_collate_fn
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # device = "cuda:0"
 print(device)
 
-# Should set all parameters of model in this dictionary
+# Create the parameters dict, will be fill after
 
-model_params = dict(
-    ntoken=2342,  # len(TEXT.vocab.stoi), # the size of vocabulary
-    ninp=200,  # embedding dimension
-    nhid=200,  # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers=2,  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead=2,  # the number of heads in the multi_head_attention models
-    dropout=0.2
+parameters = dict()
+parameters['device'] = device
+
+# Should set all parameters of dataloader in this dictionary
+
+dataloader_params = dict(
+    dataset=None,  # Will change to take dataset
+    batch_size=20,
+    shuffle=False,
+    sampler=None,
+    batch_sampler=None,
+    num_workers=0,
+    collate_fn=classic_collate_fn,
+    pin_memory=False,
+    drop_last=False,
+    timeout=0,
+    worker_init_fn=None
 )
 
 # Should set all parameters of criterion in this dictionary
@@ -37,78 +48,84 @@ embedder_params = dict(
     _weight=None
 )
 
+
+parameters['embedder'] = embedder.W2VCustomEmbedding(**embedder_params).to(parameters['device'])
+
+dataloader_params['dataset'] = dataset.AllSentencesDataset(
+    path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
+    device=parameters['device'],
+    text_column=1)
+
+dataloader_params['dataset'].set_embedder(parameters['embedder'])
+
+# Should set all parameters of model in this dictionary
+
+model_params = dict(
+    ntoken=len(parameters['embedder'].word2index),  # len(TEXT.vocab.stoi), # the size of vocabulary
+    ninp=parameters['embedder'].embedding_dim,  # embedding dimension
+    nhid=200,  # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers=2,  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
+    nhead=2,  # the number of heads in the multi_head_attention models
+    dropout=0.2,
+    device = parameters['device']
+)
+
+parameters['model'] = models.TransformerModel(**model_params).to(parameters['device'])
+
 # Should set all parameters of criterion in this dictionary
 
 criterion_params = dict()
 
+parameters['criterion'] = nn.CrossEntropyLoss().to(parameters['device'])
+
 # Should set all parameters of optimizer in this dictionary
 
+parameters['lr'] = 5  # Always
+
 optimizer_params = dict(
-    lr=None,  # will change to take parameters['lr']
+    params=parameters['model'].parameters(),
+    lr=parameters['lr'],  # will change to take parameters['lr']
     momentum=0,
     dampening=0,
     weight_decay=0,
     nesterov=False
 )
 
+parameters['optimizer'] = torch.optim.SGD(**optimizer_params)
+
 # Should set all parameters of scheduler in this dictionary
 
 scheduler_params = dict(
-    optimizer=None,  # will change to take parameters['optimizer']
-    step_size=None,  # Have more attention to this parameters
+    optimizer=parameters['optimizer'],  # will change to take parameters['optimizer']
+    step_size=1.0,  # Have more attention to this parameters
     gamma=0.1,
     last_epoch=-1
 )
 
-dataloader_params = dict(
-    dataset=None,  # Will change to take dataset
-    batch_size=1,
-    shuffle=False,
-    sampler=None,
-    batch_sampler=None,
-    num_workers=0,
-    collate_fn=None,
-    pin_memory=False,
-    drop_last=False,
-    timeout=0,
-    worker_init_fn=None
-)
+parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
 
-parameters = dict(
-    execution_name="TextExecution",  # Always
-    epochs=10,  # Always
-    lr=5,  # Always
-    criterion_params=criterion_params,
-    optimizer_params=optimizer_params,
-    scheduler_params=scheduler_params,
-    embedder_params=embedder_params,
-    model_params=model_params,
-    batch_size=20,  # Always
-    eval_batch_size=10,  # Always
-    split_sets=[.90, .08, .02]  # Use to set train, eval and test dataset size, should be egal to 1
-)
+
+
+parameters['execution_name'] = "TextExecution"  # Always
+parameters['epochs'] = 10  # Always
+parameters['criterion_params'] = criterion_params
+parameters['optimizer_params'] = optimizer_params
+parameters['scheduler_params'] = scheduler_params
+parameters['embedder_params'] = embedder_params
+parameters['model_params'] = model_params
+parameters['log_interval_batch'] = 10
+# parameters['log_interval_batch'] = example de ligne que l'on veut retirer // Ligne à commenter
+parameters['batch_size'] = 20  # Always
+parameters['eval_batch_size'] = 10  # Always
+parameters['split_sets'] = [.90, .08, .02]  # Use to set train, eval and test dataset size, should be egal to 1
 
 functions.save_execution_file(parameters)
 
 functions.add_to_execution_file(parameters, 'Code execute on ' + str(device))
 
-parameters['embedder'] = embedder.W2VCustomEmbedding(**parameters['embedder_params'])
-parameters['model'] = models.TransformerModel(**parameters['model_params'])
-parameters['criterion'] = nn.CrossEntropyLoss()
-parameters['optimizer'] = torch.optim.SGD(parameters['model'].parameters(),
-                                          **functions.dict_change(optimizer_params, {'lr': parameters['lr']}))
-parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(parameters['optimizer'], step_size=1.0,
-                                                          **functions.dict_less(scheduler_params,
-                                                                                ['optimizer', 'step_size']))
-
-dataloader_params['dataset'] = dataset.AllSentencesDataset(
-    path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv', text_column=1)
-
-dataloader_params['dataset'].set_embedder(parameters['embedder'])
-
-print(dataloader_params['dataset'].vocabulary.word2index)
-print('aloha'+'\n')
-#print(dataloader_params['dataset'].embedder.vocabulary.word2index)
+# print(dataloader_params['dataset'].vocabulary.word2index)
+# print('aloha'+'\n')
+# print(dataloader_params['dataset'].embedder.vocabulary.word2index)
 
 train_set, valid_set, test_set = torch.utils.data.random_split(dataloader_params['dataset'],
                                                                functions.split_values(len(dataloader_params['dataset']),
@@ -118,14 +135,16 @@ train_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {
 valid_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': valid_set}))
 test_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': test_set}))
 
+training_functions.full_train(parameters, train_data_loader, valid_data_loader, None)
+
 # Define the function to do for each batch
 # The input form is :
 
 print(test_data_loader.dataset.__len__())  # Voir pourquoi _= ça marche pas
 print('\n')
 
-#for batch in test_data_loader:
-    #print(batch)
+for batch in test_data_loader:
+    print(batch)
 
 
 # print(parameters['embedder'].vocabulary())
@@ -136,8 +155,6 @@ print('\n')
 def one_train(batch):
     return batch
 
-
-#training_functions.full_train(parameters, train_data_loader, valid_data_loader, training_functions.one_train)
 
 # model = TransformerModel()
 

@@ -15,8 +15,7 @@ class W2VPTEmbedding(nn.Embedding):  # A completer sur le schema de W2VCustomEmb
         self.weights = torch.FloatTensor(model.vectors)
         nn.Embedding.__init__(self, self.weights.shape[0], self.weights.shape[1], padding_idx=padding_idx,
                               max_norm=max_norm, norm_type=norm_type, scale_grad_by_freq=scale_grad_by_freq,
-                              sparse=sparse, _weight=_weight)
-        self.weights = torch.FloatTensor(model.vectors)
+                              sparse=sparse, _weight=torch.FloatTensor(model.vectors))
 
 
 class W2VCustomEmbedding(nn.Embedding):
