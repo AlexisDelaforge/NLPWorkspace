@@ -24,7 +24,7 @@ parameters['device'] = device
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=20,
+    batch_size=26,
     shuffle=False,
     sampler=None,
     batch_sampler=None,
@@ -48,15 +48,16 @@ embedder_params = dict(
     _weight=None
 )
 
-
 parameters['embedder'] = embedder.W2VCustomEmbedding(**embedder_params).to(parameters['device'])
 
 dataloader_params['dataset'] = dataset.AllSentencesDataset(
-    path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
+    # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
+    path='../Data/NLP_Dataset/all_setences_en_processed.tsv',
     device=parameters['device'],
     text_column=1)
 
 dataloader_params['dataset'].set_embedder(parameters['embedder'])
+parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
 
 # Should set all parameters of model in this dictionary
 
@@ -67,20 +68,22 @@ model_params = dict(
     nlayers=2,  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
     nhead=2,  # the number of heads in the multi_head_attention models
     dropout=0.2,
-    device = parameters['device']
+    device=parameters['device']
 )
 
 parameters['model'] = models.TransformerModel(**model_params).to(parameters['device'])
 
 # Should set all parameters of criterion in this dictionary
 
-criterion_params = dict()
+criterion_params = dict(
+    ignore_index = parameters['pad_token']  # ignore pad_token because it's not relevant
+)
 
 parameters['criterion'] = nn.CrossEntropyLoss().to(parameters['device'])
 
 # Should set all parameters of optimizer in this dictionary
 
-parameters['lr'] = 5  # Always
+parameters['lr'] = 0.8  # Always
 
 optimizer_params = dict(
     params=parameters['model'].parameters(),
@@ -97,16 +100,16 @@ parameters['optimizer'] = torch.optim.SGD(**optimizer_params)
 
 scheduler_params = dict(
     optimizer=parameters['optimizer'],  # will change to take parameters['optimizer']
-    step_size=1.0,  # Have more attention to this parameters
-    gamma=0.1,
+    step_size=1.0,  # Each epoch do decay for 1, two epoch for 2 etc...
+    gamma=0.8,  # Multiple lr by gamma value at each update
     last_epoch=-1
 )
 
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
+parameters['scheduler_interval_batch'] = True
+parameters['valid_interval_batch'] = 1000
 
-
-
-parameters['execution_name'] = "TextExecution"  # Always
+parameters['execution_name'] = "PremierTestTransformerEncoder"  # Always
 parameters['epochs'] = 10  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params
@@ -117,7 +120,7 @@ parameters['log_interval_batch'] = 10
 # parameters['log_interval_batch'] = example de ligne que l'on veut retirer // Ligne à commenter
 parameters['batch_size'] = 20  # Always
 parameters['eval_batch_size'] = 10  # Always
-parameters['split_sets'] = [.90, .08, .02]  # Use to set train, eval and test dataset size, should be egal to 1
+parameters['split_sets'] = [.98, .01, .01]  # Use to set train, eval and test dataset size, should be egal to 1
 
 functions.save_execution_file(parameters)
 
@@ -126,7 +129,7 @@ functions.add_to_execution_file(parameters, 'Code execute on ' + str(device))
 # print(dataloader_params['dataset'].vocabulary.word2index)
 # print('aloha'+'\n')
 # print(dataloader_params['dataset'].embedder.vocabulary.word2index)
-
+# print(len(dataloader_params['dataset']))
 train_set, valid_set, test_set = torch.utils.data.random_split(dataloader_params['dataset'],
                                                                functions.split_values(len(dataloader_params['dataset']),
                                                                                       parameters['split_sets']))

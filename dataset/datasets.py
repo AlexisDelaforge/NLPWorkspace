@@ -15,7 +15,7 @@ class AllSentencesDataset(Dataset):  # A retravailler
         self.path = path
         self.device = device
         if id_column is None:
-            self.data = pd.read_csv(path, usecols=[text_column], sep='\t')
+            self.data = pd.read_csv(path, usecols=[text_column], sep='\t') # , nrows=401)
             self.id_column = False
             self.data.columns = ['text']
         else:
