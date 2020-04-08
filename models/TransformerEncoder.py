@@ -18,8 +18,8 @@ class TransformerModel(nn.Module):
         self.model_type = 'Transformer'
         self.src_mask = None
         self.pos_encoder = PositionalEncoding(ninp, self.device, dropout).to(self.device)
-        encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout)
-        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers)
+        encoder_layers = TransformerEncoderLayer(ninp, nhead, nhid, dropout).to(self.device)
+        self.transformer_encoder = TransformerEncoder(encoder_layers, nlayers).to(self.device)
         self.ninp = ninp
         self.decoder = nn.Linear(ninp, ntoken)
 
