@@ -9,6 +9,7 @@ import training_functions
 from torch.utils import data
 import dataset
 from preprocessing import classic_collate_fn
+import time
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,12 +20,13 @@ print(device)
 
 parameters = dict()
 parameters['device'] = device
+parameters['tmps_form_last_step'] = time.time()
 
 # Should set all parameters of dataloader in this dictionary
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=26,
+    batch_size=20,
     shuffle=False,
     sampler=None,
     batch_sampler=None,
@@ -79,7 +81,9 @@ criterion_params = dict(
     ignore_index = parameters['pad_token']  # ignore pad_token because it's not relevant
 )
 
-parameters['criterion'] = nn.CrossEntropyLoss().to(parameters['device'])
+print(parameters['pad_token'])
+
+parameters['criterion'] = nn.CrossEntropyLoss(**criterion_params).to(parameters['device'])
 
 # Should set all parameters of optimizer in this dictionary
 
@@ -94,6 +98,10 @@ optimizer_params = dict(
     nesterov=False
 )
 
+# for name, param in parameters['model'].named_parameters():
+#     if param.requires_grad:
+#         print (name, param.data)
+
 parameters['optimizer'] = torch.optim.SGD(**optimizer_params)
 
 # Should set all parameters of scheduler in this dictionary
@@ -107,9 +115,9 @@ scheduler_params = dict(
 
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
 parameters['scheduler_interval_batch'] = True
-parameters['valid_interval_batch'] = 1000
+parameters['valid_interval_batch'] = 5000
 
-parameters['execution_name'] = "PremierTestTransformerEncoder"  # Always
+parameters['execution_name'] = "SecondTestTransformerEncoder"  # Always
 parameters['epochs'] = 10  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params
@@ -126,6 +134,9 @@ functions.save_execution_file(parameters)
 
 functions.add_to_execution_file(parameters, 'Code execute on ' + str(device))
 
+functions.add_to_execution_file(parameters, 'Fin de définition des parametres en  ' + str(round((time.time()-parameters['tmps_form_last_step']), 2))+' secondes')
+parameters['tmps_form_last_step'] = time.time()
+
 # print(dataloader_params['dataset'].vocabulary.word2index)
 # print('aloha'+'\n')
 # print(dataloader_params['dataset'].embedder.vocabulary.word2index)
@@ -137,6 +148,11 @@ train_set, valid_set, test_set = torch.utils.data.random_split(dataloader_params
 train_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': train_set}))
 valid_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': valid_set}))
 test_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': test_set}))
+
+functions.add_to_execution_file(parameters, 'Fin de creation des dataloader en  ' + str(round((time.time()-parameters['tmps_form_last_step']), 2))+' secondes')
+parameters['tmps_form_last_step'] = time.time()
+
+#print(parameters['model'].device)
 
 training_functions.full_train(parameters, train_data_loader, valid_data_loader, None)
 

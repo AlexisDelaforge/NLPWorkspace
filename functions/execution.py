@@ -1,5 +1,5 @@
 import os
-
+import pickle as pkl
 
 def save_execution_file(parameters):
     try:
@@ -13,6 +13,8 @@ def save_execution_file(parameters):
         f.write('* ' + str(key) + ' = \t' + str(value) + '\n')
     f.write('\n')
     f.close()
+    pkl.dump(parameters['model'], open("./executions/" + parameters['execution_name'] + "/model.pkl", "wb"))
+    pkl.dump(parameters['embedder'], open("./executions/" + parameters['execution_name'] + "/embedder.pkl", "wb"))
 
 
 def add_to_execution_file(parameters, line):

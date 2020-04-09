@@ -126,13 +126,14 @@ class F1_Loss_Sentences(nn.Module):
     - http://www.ryanzhang.info/python/writing-your-own-loss-function-module-for-pytorch/
     '''
 
-    def __init__(self, num_classes, epsilon=1e-7):
+    def __init__(self, num_classes, device, epsilon=1e-7):
         super().__init__()
         self.num_classes = num_classes
         self.epsilon = epsilon
+        self.device = device
 
     def forward(self, y_pred, y_true):
-        device = 'cuda'
+        device = self.device
         # assert y_pred.ndim == 2
         # assert y_true.ndim == 1
         y_true = F.one_hot(y_true, self.num_classes).permute(0, 2, 1).to(torch.torch.float16)
