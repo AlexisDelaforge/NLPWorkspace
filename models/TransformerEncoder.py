@@ -6,8 +6,8 @@ from models.modules import PositionalEncoding
 
 
 # Code from : https://pytorch.org/tutorials/beginner/transformer_tutorial.html
-# Change : No
-
+# Change : Yes
+# https://arxiv.org/pdf/1706.03762.pdf
 
 class TransformerModel(nn.Module):
 
@@ -23,9 +23,12 @@ class TransformerModel(nn.Module):
         self.ninp = ninp
         self.decoder = nn.Linear(ninp, ntoken)
 
+        '''Since you are using the CrossEntropyLoss, you shouldn't do the log_softmax in the above line. You can 
+        either switch to the NLLLoss or remove the log_softmax to fix this. '''
+
         self.init_weights()
 
-    def generate_square_subsequent_mask(self, sz):
+    def _generate_square_subsequent_mask(self, sz):
         mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
         mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0))
         return mask
@@ -43,10 +46,10 @@ class TransformerModel(nn.Module):
         target = src[1].to(self.device)
         #print(input.device)
         #print(target.device)
-        '''if self.src_mask is None or self.src_mask.size(0) != len(src):
-            device = src.device
-            mask = self._generate_square_subsequent_mask(len(src)).to(device)
-            self.src_mask = mask'''
+        if self.src_mask is None or self.src_mask.size(0) != len(src):
+            device = input.device
+            mask = self._generate_square_subsequent_mask(len(input)).to(device)
+            self.src_mask = mask
         input = self.pos_encoder(input)
         output = self.transformer_encoder(input, self.src_mask)
         output = self.decoder(output)

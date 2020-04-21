@@ -26,12 +26,15 @@ def tensor_to_sentences_idx(tensors):
     sentences_idx = []
     for tensor in tensors.unbind(1):
         sentence_idx = torch.argmax(tensor, dim=1)
+        print(sentence_idx.shape)
         sentences_idx.append(sentence_idx)
     return sentences_idx
 
 def tensor_to_sentences(tensors, idx_to_word):
     sentences_idx = torch.argmax(tensors, dim=1, keepdim=True)
     # print(sentences_idx.shape)
+    print(sentences_idx.shape)
+    print(torch.topk(tensors, k=10, dim=1))
     sentences = []
     for sentence_tensor in sentences_idx.unbind(0):
         sentence = []

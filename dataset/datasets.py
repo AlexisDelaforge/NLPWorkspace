@@ -60,6 +60,7 @@ class AllSentencesDataset(Dataset):  # A retravailler
         self.pad = self.vocabulary.word2index['<pad>']
         self.vocabulary.add_word('<unk>')
         self.unk = self.vocabulary.word2index['<unk>']
+        self.vocabulary.index2word = {v: k for k, v in self.vocabulary.word2index.items()}
         #print(self.unk)
         #print(self.embedder.weights.shape)
         #print(torch.mean(self.embedder.weights, dim=0).unsqueeze(dim=0).shape)

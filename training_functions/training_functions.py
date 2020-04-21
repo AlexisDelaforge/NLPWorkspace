@@ -29,7 +29,6 @@ def full_train(parameters, train_data_loader, valid_data_loader, one_train):
             parameters['batch_start_time'] = time.time()
             # data, targets = get_batch(train_data, i)
             parameters['optimizer'].zero_grad()
-            #print(batch)
             # functions.add_to_execution_file(parameters, 'Fin deprocedure avant Nnetwork en  ' + str(
             #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
             # parameters['tmps_form_last_step'] = time.time()
@@ -38,7 +37,8 @@ def full_train(parameters, train_data_loader, valid_data_loader, one_train):
             #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
             # parameters['tmps_form_last_step'] = time.time()
             #print(output.device)
-            f1_score, precision, recall = f1_loss(output, target)
+            if parameters['l1_loss']:
+                f1_score, precision, recall = f1_loss(output, target)
             # functions.add_to_execution_file(parameters, 'Fin du calcul du F1  ' + str(
             #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
             # parameters['tmps_form_last_step'] = time.time()
@@ -58,7 +58,7 @@ def full_train(parameters, train_data_loader, valid_data_loader, one_train):
                 # functions.add_to_execution_file(parameters, 'Fin de grad_norm  ' + str(
                 #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
                 # parameters['tmps_form_last_step'] = time.time()
-            if 'optimizer' in parameters and parameters['optimizer']:
+            if 'optimizer' in parameters:
                 parameters['optimizer'].step()
                 # functions.add_to_execution_file(parameters, 'Fin de optimizer  ' + str(
                 #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
@@ -84,7 +84,8 @@ def full_train(parameters, train_data_loader, valid_data_loader, one_train):
                         parameters['epoch'], batch_num, len(train_data_loader), scheduler.get_lr()[0],
                         elapsed * 1000 / parameters['log_interval_batch'], # Ligne à réfléchir
                         cur_loss, math.exp(cur_loss)))
-                    functions.add_to_execution_file(parameters, '| F1: {:02.4f} | Precision: {:02.4f} | Recall: {:02.4f}'.format(f1_score.item(), precision.item(), recall.item()))
+                    if parameters['l1_loss']:
+                        functions.add_to_execution_file(parameters, '| F1: {:02.4f} | Precision: {:02.4f} | Recall: {:02.4f}'.format(f1_score.item(), precision.item(), recall.item()))
 
                     total_loss = 0
                     parameters['log_interval_time'] = time.time()
@@ -145,5 +146,6 @@ def best_model_and_save(parameters, val_loss):
         parameters['best_model'] = parameters['model']
         for f in glob.glob("./executions/" + str(parameters['execution_name']) + "/models/Best_Model_Epoch*.pt"):
             os.remove(f)
-        torch.save(parameters['best_model'].state_dict(),"./executions/" + str(parameters['execution_name']) + "/models/Best_Model_Epoch_" + str(parameters['epoch'])+".pt")
+        torch.save(parameters['best_model'].to('cpu').state_dict(),"./executions/" + str(parameters['execution_name']) + "/models/CPU_Best_Model_Epoch_" + str(parameters['epoch'])+".pt")
+        torch.save(parameters['best_model'].to(parameters['device']).state_dict(),"./executions/" + str(parameters['execution_name']) + "/models/Best_Model_Epoch_" + str(parameters['epoch'])+".pt")
     torch.save(parameters['model'].state_dict(),"./executions/" + str(parameters['execution_name']) + "/models/Model_Epoch_" + str(parameters['epoch']) + ".pt")

@@ -2,6 +2,7 @@ from tokenizer import tokenizer
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
 
 # Own modules to handle dictionary
 
@@ -61,6 +62,26 @@ def split_values(dataset_length, listed_len):
     elif sum(listed_len) > dataset_length:
         listed_len[0] -= 1
     return listed_len
+
+
+# Must consult : https://datascience.stackexchange.com/questions/13490/how-to-set-class-weights-for-imbalanced-classes-in-keras
+
+def weight_cross(word2count, mu=0.15):
+    total = sum(word2count.values())
+    weight_cross_values = []
+    keys = word2count.keys()
+    for key in keys:
+        score = math.log(mu * total / float(word2count[key]))
+        if score > 1.0:
+            weight_cross_values.append(score)
+        else:
+            weight_cross_values.append(1)
+    return weight_cross_values
+
+def weight_cross_first_version(word2count):
+    somme = sum(word2count.values())
+    weight_cross = [(1-(v/somme)) for v in word2count.values()]
+    return weight_cross
 
 
 # My code

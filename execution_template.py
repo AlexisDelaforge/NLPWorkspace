@@ -26,7 +26,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=20,
+    batch_size=12,  # Will change below
     shuffle=False,
     sampler=None,
     batch_sampler=None,
@@ -41,7 +41,7 @@ dataloader_params = dict(
 # Should set all parameters of criterion in this dictionary
 
 embedder_params = dict(
-    path='./data/model_embedding/model.bin',
+    path='./data/model_embedding/fine_tune_W2V.model',
     padding_idx=None,
     max_norm=None,
     norm_type=2.0,
@@ -66,10 +66,10 @@ parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
 model_params = dict(
     ntoken=len(parameters['embedder'].word2index),  # len(TEXT.vocab.stoi), # the size of vocabulary
     ninp=parameters['embedder'].embedding_dim,  # embedding dimension
-    nhid=200,  # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers=2,  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder
-    nhead=2,  # the number of heads in the multi_head_attention models
-    dropout=0.2,
+    nhid=512,  # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers=6,  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder 10-16
+    nhead=10,  # the number of heads in the multi_head_attention models
+    dropout=0.1,
     device=parameters['device']
 )
 
@@ -78,10 +78,11 @@ parameters['model'] = models.TransformerModel(**model_params).to(parameters['dev
 # Should set all parameters of criterion in this dictionary
 
 criterion_params = dict(
-    ignore_index = parameters['pad_token']  # ignore pad_token because it's not relevant
+    ignore_index=parameters['pad_token'],  # ignore pad_token because it's not relevant
+    weight=torch.tensor(functions.weight_cross(dataloader_params['dataset'].embedder.word2count), device=parameters['device'])
 )
 
-print(parameters['pad_token'])
+print(criterion_params['weight'][0])
 
 parameters['criterion'] = nn.CrossEntropyLoss(**criterion_params).to(parameters['device'])
 
@@ -109,15 +110,16 @@ parameters['optimizer'] = torch.optim.SGD(**optimizer_params)
 scheduler_params = dict(
     optimizer=parameters['optimizer'],  # will change to take parameters['optimizer']
     step_size=1.0,  # Each epoch do decay for 1, two epoch for 2 etc...
-    gamma=0.8,  # Multiple lr by gamma value at each update
+    gamma=0.7,  # Multiple lr by gamma value at each update
     last_epoch=-1
 )
 
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
 parameters['scheduler_interval_batch'] = True
-parameters['valid_interval_batch'] = 5000
+parameters['valid_interval_batch'] = 3000
+parameters['l1_loss'] = False
 
-parameters['execution_name'] = "SecondTestTransformerEncoder"  # Always
+parameters['execution_name'] = "FineTuneW2VOriginalTransformerEncoder"  # Always
 parameters['epochs'] = 10  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params
@@ -126,7 +128,7 @@ parameters['embedder_params'] = embedder_params
 parameters['model_params'] = model_params
 parameters['log_interval_batch'] = 10
 # parameters['log_interval_batch'] = example de ligne que l'on veut retirer // Ligne à commenter
-parameters['batch_size'] = 20  # Always
+parameters['batch_size'] = dataloader_params['batch_size'] # Always
 parameters['eval_batch_size'] = 10  # Always
 parameters['split_sets'] = [.98, .01, .01]  # Use to set train, eval and test dataset size, should be egal to 1
 

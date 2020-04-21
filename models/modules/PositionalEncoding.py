@@ -21,6 +21,6 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(0), :]
+        x = x.to(self.device) + self.pe[:x.size(0), :]
         return self.dropout(x).to(self.device)
 

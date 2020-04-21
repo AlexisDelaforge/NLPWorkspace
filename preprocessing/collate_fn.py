@@ -40,5 +40,5 @@ def classic_collate_fn(batch):
     #print(len(new_batch[2]))
     #print(len(new_batch[1]))
 
-    return tuple([torch.stack([s[0] for s in new_batch]), torch.stack([s[1] for s in new_batch])])
+    return tuple([torch.stack([s[0] for s in new_batch]).permute(1, 0, 2), torch.stack([s[1] for s in new_batch]).permute(1, 0)])
     # tuple ( N_sentences, N_words, N_embedding / N_sentences, N_words )
