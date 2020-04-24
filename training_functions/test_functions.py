@@ -33,8 +33,8 @@ def tensor_to_sentences_idx(tensors):
 def tensor_to_sentences(tensors, idx_to_word):
     sentences_idx = torch.argmax(tensors, dim=1, keepdim=True)
     # print(sentences_idx.shape)
-    print(sentences_idx.shape)
-    print(torch.topk(tensors, k=10, dim=1))
+    # print(sentences_idx.shape)
+    # print(torch.topk(tensors, k=10, dim=1))
     sentences = []
     for sentence_tensor in sentences_idx.unbind(0):
         sentence = []

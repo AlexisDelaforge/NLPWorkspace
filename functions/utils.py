@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-
+import time
 # Own modules to handle dictionary
 
 # My code
@@ -62,6 +62,22 @@ def split_values(dataset_length, listed_len):
     elif sum(listed_len) > dataset_length:
         listed_len[0] -= 1
     return listed_len
+
+
+# Not my code
+# https://pytorch.org/tutorials/intermediate/seq2seq_translation_tutorial.html
+
+def asMinutes(s):
+    m = math.floor(s / 60)
+    s -= m * 60
+    return '%dm %ds' % (m, s)
+
+def timeSince(since, percent):
+    now = time.time()
+    s = now - since
+    es = s / (percent)
+    rs = es - s
+    return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
 
 # Must consult : https://datascience.stackexchange.com/questions/13490/how-to-set-class-weights-for-imbalanced-classes-in-keras

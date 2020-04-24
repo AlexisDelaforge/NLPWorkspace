@@ -26,7 +26,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=12,  # Will change below
+    batch_size=2,
     shuffle=False,
     sampler=None,
     batch_sampler=None,
@@ -54,7 +54,7 @@ parameters['embedder'] = embedder.W2VCustomEmbedding(**embedder_params).to(param
 
 dataloader_params['dataset'] = dataset.AllSentencesDataset(
     # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
-    path='../Data/NLP_Dataset/all_setences_en_processed.tsv',
+    path='../Data/NLP_Dataset/all_setences_en.tsv',
     device=parameters['device'],
     text_column=1)
 
@@ -63,7 +63,7 @@ parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
 
 # Should set all parameters of model in this dictionary
 
-model_params = dict(
+'''model_params = dict(
     ntoken=len(parameters['embedder'].word2index),  # len(TEXT.vocab.stoi), # the size of vocabulary
     ninp=parameters['embedder'].embedding_dim,  # embedding dimension
     nhid=512,  # the dimension of the feedforward network model in nn.TransformerEncoder
@@ -71,9 +71,20 @@ model_params = dict(
     nhead=10,  # the number of heads in the multi_head_attention models
     dropout=0.1,
     device=parameters['device']
+)'''
+
+model_params = dict(
+    vocab_size=len(parameters['embedder'].word2index),
+    embed_size=parameters['embedder'].embedding_dim,
+    sos_token=parameters['embedder'](torch.tensor(parameters['embedder'].word2index['<sos>'])),
+    eos_token=parameters['embedder'](torch.tensor(parameters['embedder'].word2index['<eos>'])),
+    dropout_p=0.1,
+    device=parameters['device'],
+    teacher_forcing_ratio=0.5,
+    max_length=100
 )
 
-parameters['model'] = models.TransformerModel(**model_params).to(parameters['device'])
+parameters['model'] = models.AttnAutoEncoderRNN(**model_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
 
 # Should set all parameters of criterion in this dictionary
 
@@ -88,7 +99,7 @@ parameters['criterion'] = nn.CrossEntropyLoss(**criterion_params).to(parameters[
 
 # Should set all parameters of optimizer in this dictionary
 
-parameters['lr'] = 0.8  # Always
+parameters['lr'] = 0.002  # Always
 
 optimizer_params = dict(
     params=parameters['model'].parameters(),
@@ -109,17 +120,20 @@ parameters['optimizer'] = torch.optim.SGD(**optimizer_params)
 
 scheduler_params = dict(
     optimizer=parameters['optimizer'],  # will change to take parameters['optimizer']
-    step_size=1.0,  # Each epoch do decay for 1, two epoch for 2 etc...
+    step_size=1,  # Each epoch do decay for 1, two epoch for 2 etc...
     gamma=0.7,  # Multiple lr by gamma value at each update
     last_epoch=-1
 )
 
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
-parameters['scheduler_interval_batch'] = True
-parameters['valid_interval_batch'] = 3000
+parameters['scheduler_interval_batch'] = 5000
+parameters['valid_interval_batch'] = 5000
 parameters['l1_loss'] = False
+if parameters['l1_loss']:
+    print('l1_loss is True')
 
-parameters['execution_name'] = "FineTuneW2VOriginalTransformerEncoder"  # Always
+parameters['train_function'] = training_functions.autoencoder_seq2seq_train
+parameters['execution_name'] = "FirstTestSeq2Seq"  # Always
 parameters['epochs'] = 10  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params
@@ -156,7 +170,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 #print(parameters['model'].device)
 
-training_functions.full_train(parameters, train_data_loader, valid_data_loader, None)
+parameters['train_function'](parameters, train_data_loader, valid_data_loader)
 
 # Define the function to do for each batch
 # The input form is :

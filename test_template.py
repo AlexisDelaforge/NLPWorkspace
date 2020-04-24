@@ -27,7 +27,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=20, # Will change below
+    batch_size=4,
     shuffle=False,
     sampler=None,
     batch_sampler=None,
@@ -65,22 +65,22 @@ parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
 # Should set all parameters of model in this dictionary
 
 model_params = dict(
-    ntoken=len(parameters['embedder'].word2index),  # len(TEXT.vocab.stoi), # the size of vocabulary
-    ninp=parameters['embedder'].embedding_dim,  # embedding dimension
-    nhid=512,  # the dimension of the feedforward network model in nn.TransformerEncoder
-    nlayers=6,  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder 10-16
-    nhead=10,  # the number of heads in the multi_head_attention models
-    dropout=0.1,
-    device=parameters['device']
+    vocab_size=len(parameters['embedder'].word2index),
+    embed_size=parameters['embedder'].embedding_dim,
+    sos_token=parameters['embedder'].word2index['<sos>'],
+    eos_token=parameters['embedder'].word2index['<eos>'],
+    dropout_p=0.1,
+    device=parameters['device'],
+    teacher_forcing_ratio=0.5,
+    max_length=100
 )
 
-parameters['model'] = models.TransformerModel(**model_params).to(parameters['device'])
 
-name_execution = 'FineTuneW2VOriginalTransformerEncoder'
+name_execution = 'FirstTestSeq2Seq'
 
 #with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
     #model = pkl.load(f)
-model = models.TransformerModel(**model_params).to(device)
+model = models.AttnAutoEncoderRNN(**model_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
 with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
     embedder = pkl.load(f)
 for f in glob.glob("./executions/" + str(name_execution) + "/models/CPU_Best_Model_Epoch*.pt"):
