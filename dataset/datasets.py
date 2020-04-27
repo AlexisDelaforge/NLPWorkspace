@@ -60,9 +60,8 @@ class AllSentencesDataset(Sampler):  # A retravailler
         # sample['features'] = [self.sos] + list(map(str, list(self.tokenizer(sample['features'])))) + [self.eos]
         # print(list(map(str, self.tokenizer(sample['features']))))
         # print(target)
-        # return self.embedder(torch.tensor(text).to(self.device)).to(self.device), torch.tensor(target).to(self.device), self.embedder(torch.tensor(self.pad).to(self.device)).to(self.device), torch.tensor(self.pad).to(self.device)
-        return torch.tensor(text).to(self.device), torch.tensor(target).to(self.device), self.embedder(
-            torch.tensor(self.pad).to(self.device)).to(self.device), torch.tensor(self.pad).to(self.device)
+        return torch.tensor(text).to(self.device), torch.tensor(target).to(self.device)
+        #self.embedder(torch.tensor(self.pad).to(self.device)).to(self.device), torch.tensor(self.pad).to(self.device)
 
     def __len__(self):
         return int(len(self.data))

@@ -190,27 +190,30 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
         # ntokens = len(parameters['embedder'].index2word)
         parameters['epoch'] += 1
         batch_num = 0
-        print(len(train_data_loader))
+        # print(len(train_data_loader))
         for batch in train_data_loader:  # parameters['batchs']
-            print('debut du batch')
-            print(batch)
+            # print('debut du batch')
+            # print(batch)
+            # print(len(train_data_loader[batch[0]][0]))
+            # print(len(train_data_loader[batch[1]][0]))
+            # batch = parameters['collate_fn']([train_data_loader[i] for i in batch])
             parameters['model'].train()
             batch_num += 1
             parameters['batch_start_time'] = time.time()
             parameters['optimizer'].zero_grad()
             # print(batch_num)
             loss = 0
-            #print('batch structure')
-            #print(batch[0].shape)
-            #print(batch[1].shape)
+            # print('batch structure')
+            # print(batch[0].shape)
+            # print(batch[1].shape)
             output, target = parameters['model'](batch)
-            #print('model output')
-            #print(output.shape)
-            #print(target.shape)
+            # print('model output')
+            # print(output.shape)
+            # print(target.shape)
             for di in range(len(output)):
-                #print('model output di')
-                #print(output.shape)
-                #print(target[di].shape)
+                # print('model output di')
+                # print(output.shape)
+                # print(target[di].shape)
                 loss += parameters['criterion'](output[di], target[di])  # voir pourquoi unsqueeze
             loss.backward()
             if 'grad_norm' in parameters and parameters['grad_norm']:
@@ -219,15 +222,16 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
                 # functions.add_to_execution_file(parameters, 'Fin de grad_norm  ' + str(
                 #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
                 # parameters['tmps_form_last_step'] = time.time()
-            if parameters['scheduler'] is not None and 'scheduler_interval_batch' in parameters and batch_num % parameters[
-                'scheduler_interval_batch'] == 0 and batch_num != 0:
+            if parameters['scheduler'] is not None and 'scheduler_interval_batch' in parameters and batch_num % \
+                    parameters[
+                        'scheduler_interval_batch'] == 0 and batch_num != 0:
                 # print('step')
                 # print(parameters['scheduler'].get_lr())
                 parameters['scheduler'].step()
             if 'optimizer' in parameters:
-                #print(parameters['scheduler'].get_lr())
+                # print(parameters['scheduler'].get_lr())
                 parameters['optimizer'].step()
-                #print(parameters['scheduler'].get_lr())
+                # print(parameters['scheduler'].get_lr())
                 # functions.add_to_execution_file(parameters, 'Fin de optimizer  ' + str(
                 #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
                 # parameters['tmps_form_last_step'] = time.time()
@@ -238,7 +242,7 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
             # print(target)
             # print(loss)
             total_loss += loss.item()
-            #print(batch_num)
+            # print(batch_num)
             if batch_num % print_every == 0:
                 print_loss_avg = print_loss_total / print_every
                 print_loss_total = 0
@@ -254,12 +258,12 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
                     elapsed = time.time() - parameters['log_interval_time']
                     if 'scheduler' in parameters and parameters['scheduler'] is not None:
                         parameters['lr'] = parameters['scheduler'].get_lr()[0]
-                    functions.add_to_execution_file(parameters,'| epoch {:3d} | {:5d}/{:5d} batches | '
+                    functions.add_to_execution_file(parameters, '| epoch {:3d} | {:5d}/{:5d} batches | '
                                                                 'lr {:02.4f} | ms/batch {:5.2f} | '
                                                                 'loss {:5.2f} | ppl {:8.2f}'.format(
                         parameters['epoch'], batch_num, len(train_data_loader), parameters['lr'],
                         elapsed * 1000 / parameters['log_interval_batch'],  # Ligne à réfléchir
-                        cur_loss, math.exp(cur_loss) if cur_loss<300 else 0)) #math.exp(cur_loss)
+                        cur_loss, math.exp(cur_loss) if cur_loss < 300 else 0))  # math.exp(cur_loss)
                     if parameters['l1_loss']:
                         functions.add_to_execution_file(parameters,
                                                         '| F1: {:02.4f} | Precision: {:02.4f} | Recall: {:02.4f}'.format(
@@ -273,7 +277,7 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
             if 'valid_interval_batch' in parameters and batch_num % parameters[
                 'valid_interval_batch'] == 0 and batch_num != 0:
                 val_loss = evaluate_seq2seq(parameters, valid_data_loader, save_model=True, end_epoch=False)
-                    #print(parameters['scheduler'].get_lr())
+                # print(parameters['scheduler'].get_lr())
                 # functions.add_to_execution_file(parameters, 'Fin de valid_interval_batch  ' + str(
                 #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
                 # parameters['tmps_form_last_step'] = time.time()
@@ -303,9 +307,9 @@ def evaluate_seq2seq(parameters, valid_data_loader, save_model=False, end_epoch=
             output, target = parameters['model'](batch)  # écrire function one_train
             # valid_loss = parameters['criterion'](output, target)
             for di in range(len(output)):
-                #print('model output di')
-                #print(output.shape)
-                #print(target[di].shape)
+                # print('model output di')
+                # print(output.shape)
+                # print(target[di].shape)
                 valid_total_loss += parameters['criterion'](output[di], target[di])  # voir pourquoi unsqueeze
 
     val_loss = valid_total_loss / (len(valid_data_loader))  # valid_total_loss / (len(valid_data_loader) - 1)
@@ -314,12 +318,14 @@ def evaluate_seq2seq(parameters, valid_data_loader, save_model=False, end_epoch=
         functions.add_to_execution_file(parameters, '| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                                                     'valid ppl {:8.2f}'.format(parameters['epoch'],
                                                                                (time.time() - start_time),
-                                                                               val_loss, math.exp(val_loss) if val_loss<300 else 0))
+                                                                               val_loss, math.exp(
+                val_loss) if val_loss < 300 else 0))
     else:
         functions.add_to_execution_file(parameters, '| inside epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                                                     'valid ppl {:8.2f}'.format(parameters['epoch'],
                                                                                (time.time() - start_time),
-                                                                               val_loss, math.exp(val_loss) if val_loss<300 else 0))
+                                                                               val_loss, math.exp(
+                val_loss) if val_loss < 300 else 0))
     functions.add_to_execution_file(parameters, '-' * 89)
     if save_model:
         best_model_and_save(parameters, val_loss)

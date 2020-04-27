@@ -8,13 +8,13 @@ import embedder
 import training_functions
 from torch.utils import data
 import dataset
-from preprocessing import classic_collate_fn, token_collate_fn
+from preprocessing import classic_collate_fn, token_collate_fn, token_collate_fn_same_size
 import time
 import samplers
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = "cuda:0"
+# device = torch.device("cpu")
 print(device)
 
 # Create the parameters dict, will be fill after
@@ -27,12 +27,12 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=2,
+    batch_size=18,
     shuffle=False,
+    batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
-    batch_sampler=None,
     num_workers=0,
-    collate_fn=token_collate_fn,
+    collate_fn=token_collate_fn_same_size,
     pin_memory=False,
     drop_last=False,
     timeout=0,
@@ -94,12 +94,15 @@ print(torch.cuda.get_device_properties(0).total_memory)
     device=parameters['device']
 )'''
 
+print('Longer sentence in data : '+str(max(dataloader_params['dataset'].size)))
+
 model_params = dict(
     embedder=parameters['embedder'],
     dropout_p=0.1,
     device=parameters['device'],
     teacher_forcing_ratio=0.5,
-    max_length=100
+    bidirectional=False,
+    max_length=max(dataloader_params['dataset'].size)
 )
 
 parameters['model'] = models.AttnAutoEncoderRNN(**model_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
@@ -157,6 +160,7 @@ if parameters['l1_loss']:
     print('l1_loss is True')
 
 parameters['train_function'] = training_functions.autoencoder_seq2seq_train
+parameters['collate_fn'] = token_collate_fn_same_size
 parameters['execution_name'] = "ThirdTestSeq2Seq"  # Always
 parameters['epochs'] = 10  # Always
 parameters['criterion_params'] = criterion_params
@@ -187,30 +191,32 @@ print(torch.cuda.get_device_properties(0).total_memory)  # 1768MiB
 
 train_set, valid_set, test_set = torch.utils.data.random_split(
     dataloader_params['dataset'],
-    functions.split_values(len(dataloader_params['dataset']),parameters['split_sets'])
+    functions.split_values(len(dataloader_params['dataset']), parameters['split_sets'])
 )
 
-if dataloader_params['sampler'] is not None and dataloader_params['batch_size'] is not 1:
-    dataloader_params['sampler'] = dataloader_params['sampler'](
+print(parameters['split_sets'])
+print(train_set)
+
+train_set = torch.utils.data.Subset(dataloader_params['dataset'], range(0, parameters['split_sets'][0]))
+valid_set = torch.utils.data.Subset(dataloader_params['dataset'], range(parameters['split_sets'][0], parameters['split_sets'][1]))
+test_set = torch.utils.data.Subset(dataloader_params['dataset'], range(parameters['split_sets'][1], parameters['split_sets'][2]))
+
+if dataloader_params['batch_sampler'] is not None and dataloader_params['batch_size'] is not 1:
+    dataloader_params['batch_sampler'] = dataloader_params['batch_sampler'](
         dataloader_params['dataset'],
-        dataloader_params['dataset'],
-        dataloader_params['batch_size']
+        dataloader_params['dataset'].size,
+        int(dataloader_params['batch_size'])
     )
     #batch_size
-    dataloader_params['shuffle'] = False
-    dataloader_params['sampler'] = None
-    dataloader_params['drop_last'] = False
+    del dataloader_params['shuffle']
+    del dataloader_params['sampler']
+    del dataloader_params['drop_last']
+    del dataloader_params['batch_size']
 
 print('position 5')
 print(torch.cuda.get_device_properties(0).total_memory)
 
-dataloader_params['sampler'] = samplers.GroupedBatchSampler(
-    dataloader_params['dataset'],
-    dataloader_params['dataset'],
-    dataloader_params['batch_size']
-)
-
-print(dataloader_params['sampler'])
+print(dataloader_params['batch_sampler'])
 
 print('position 6')
 print(torch.cuda.get_device_properties(0).total_memory)
@@ -224,8 +230,6 @@ test_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'
 
 functions.add_to_execution_file(parameters, 'Fin de creation des dataloader en  ' + str(round((time.time()-dataloader_time), 2))+' secondes')
 
-for i in train_data_loader:
-    print(i)
 
 print('position 7')
 print(torch.cuda.get_device_properties(0).total_memory)

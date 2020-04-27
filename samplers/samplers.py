@@ -48,7 +48,7 @@ class GroupedBatchSampler(BatchSampler):
 
         num_batches = 0
         for idx in self.sampler:
-            print(idx) # Check pour debbug
+            # print(idx) # Check pour debbug
             group_id = self.group_ids[idx]
             buffer_per_group[group_id].append(idx)
             samples_per_group[group_id].append(idx)
