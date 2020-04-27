@@ -192,6 +192,8 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
         batch_num = 0
         print(len(train_data_loader))
         for batch in train_data_loader:  # parameters['batchs']
+            print('debut du batch')
+            print(batch)
             parameters['model'].train()
             batch_num += 1
             parameters['batch_start_time'] = time.time()

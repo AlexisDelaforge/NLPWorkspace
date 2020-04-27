@@ -8,8 +8,9 @@ import embedder
 import training_functions
 from torch.utils import data
 import dataset
-from preprocessing import classic_collate_fn
+from preprocessing import classic_collate_fn, token_collate_fn
 import time
+import samplers
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -31,7 +32,7 @@ dataloader_params = dict(
     sampler=None,
     batch_sampler=None,
     num_workers=0,
-    collate_fn=classic_collate_fn,
+    collate_fn=token_collate_fn,
     pin_memory=False,
     drop_last=False,
     timeout=0,
@@ -50,16 +51,36 @@ embedder_params = dict(
     _weight=None
 )
 
+print('position 0')
+print(torch.cuda.memory_allocated(0))
+
 parameters['embedder'] = embedder.W2VCustomEmbedding(**embedder_params).to(parameters['device'])
+
+print('position 0bis')
+print(torch.cuda.memory_allocated(0))  # 1033MiB
 
 dataloader_params['dataset'] = dataset.AllSentencesDataset(
     # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
-    path='../Data/NLP_Dataset/all_setences_en.tsv',
+    path='../Data/NLP_Dataset/',
+    file_name='all_setences_en',
+    file_type='tsv',
     device=parameters['device'],
     text_column=1)
 
-dataloader_params['dataset'].set_embedder(parameters['embedder'])
+print('position 0ter')
+print(torch.cuda.memory_allocated(0))
+
+# Set True or False for padable
+
+dataloader_params['dataset'].set_embedder(parameters)
+
+print('position 0ter')
+print(torch.cuda.memory_allocated(0))
+
 parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
+
+print('position 1')
+print(torch.cuda.get_device_properties(0).total_memory)
 
 # Should set all parameters of model in this dictionary
 
@@ -74,10 +95,7 @@ parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
 )'''
 
 model_params = dict(
-    vocab_size=len(parameters['embedder'].word2index),
-    embed_size=parameters['embedder'].embedding_dim,
-    sos_token=parameters['embedder'](torch.tensor(parameters['embedder'].word2index['<sos>'])),
-    eos_token=parameters['embedder'](torch.tensor(parameters['embedder'].word2index['<eos>'])),
+    embedder=parameters['embedder'],
     dropout_p=0.1,
     device=parameters['device'],
     teacher_forcing_ratio=0.5,
@@ -85,6 +103,9 @@ model_params = dict(
 )
 
 parameters['model'] = models.AttnAutoEncoderRNN(**model_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
+
+print('position 2')
+print(torch.cuda.get_device_properties(0).total_memory)
 
 # Should set all parameters of criterion in this dictionary
 
@@ -97,9 +118,12 @@ print(criterion_params['weight'][0])
 
 parameters['criterion'] = nn.CrossEntropyLoss(**criterion_params).to(parameters['device'])
 
+print('position 3')
+print(torch.cuda.get_device_properties(0).total_memory)
+
 # Should set all parameters of optimizer in this dictionary
 
-parameters['lr'] = 0.002  # Always
+parameters['lr'] = 0.01  # Always
 
 optimizer_params = dict(
     params=parameters['model'].parameters(),
@@ -133,7 +157,7 @@ if parameters['l1_loss']:
     print('l1_loss is True')
 
 parameters['train_function'] = training_functions.autoencoder_seq2seq_train
-parameters['execution_name'] = "FirstTestSeq2Seq"  # Always
+parameters['execution_name'] = "ThirdTestSeq2Seq"  # Always
 parameters['epochs'] = 10  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params
@@ -153,17 +177,58 @@ functions.add_to_execution_file(parameters, 'Code execute on ' + str(device))
 functions.add_to_execution_file(parameters, 'Fin de définition des parametres en  ' + str(round((time.time()-parameters['tmps_form_last_step']), 2))+' secondes')
 parameters['tmps_form_last_step'] = time.time()
 
+print('position 4')
+print(torch.cuda.get_device_properties(0).total_memory)  # 1768MiB
+
 # print(dataloader_params['dataset'].vocabulary.word2index)
 # print('aloha'+'\n')
 # print(dataloader_params['dataset'].embedder.vocabulary.word2index)
 # print(len(dataloader_params['dataset']))
-train_set, valid_set, test_set = torch.utils.data.random_split(dataloader_params['dataset'],
-                                                               functions.split_values(len(dataloader_params['dataset']),
-                                                                                      parameters['split_sets']))
+
+train_set, valid_set, test_set = torch.utils.data.random_split(
+    dataloader_params['dataset'],
+    functions.split_values(len(dataloader_params['dataset']),parameters['split_sets'])
+)
+
+if dataloader_params['sampler'] is not None and dataloader_params['batch_size'] is not 1:
+    dataloader_params['sampler'] = dataloader_params['sampler'](
+        dataloader_params['dataset'],
+        dataloader_params['dataset'],
+        dataloader_params['batch_size']
+    )
+    #batch_size
+    dataloader_params['shuffle'] = False
+    dataloader_params['sampler'] = None
+    dataloader_params['drop_last'] = False
+
+print('position 5')
+print(torch.cuda.get_device_properties(0).total_memory)
+
+dataloader_params['sampler'] = samplers.GroupedBatchSampler(
+    dataloader_params['dataset'],
+    dataloader_params['dataset'],
+    dataloader_params['batch_size']
+)
+
+print(dataloader_params['sampler'])
+
+print('position 6')
+print(torch.cuda.get_device_properties(0).total_memory)
+
+functions.add_to_execution_file(parameters, 'Début du chargement des data loader')
+dataloader_time = time.time()
 
 train_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': train_set}))
 valid_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': valid_set}))
 test_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': test_set}))
+
+functions.add_to_execution_file(parameters, 'Fin de creation des dataloader en  ' + str(round((time.time()-dataloader_time), 2))+' secondes')
+
+for i in train_data_loader:
+    print(i)
+
+print('position 7')
+print(torch.cuda.get_device_properties(0).total_memory)
 
 functions.add_to_execution_file(parameters, 'Fin de creation des dataloader en  ' + str(round((time.time()-parameters['tmps_form_last_step']), 2))+' secondes')
 parameters['tmps_form_last_step'] = time.time()

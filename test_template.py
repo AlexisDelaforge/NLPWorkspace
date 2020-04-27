@@ -8,15 +8,15 @@ import embedder
 import training_functions
 from torch.utils import data
 import dataset
-from preprocessing import classic_collate_fn
+from preprocessing import classic_collate_fn, token_collate_fn
 import time
 import pickle as pkl
 import glob
 import os
 
 # Set the device parameters
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = "cpu"
 #print(device)
 
 parameters = dict()
@@ -27,12 +27,12 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=4,
+    batch_size=2,
     shuffle=False,
     sampler=None,
     batch_sampler=None,
     num_workers=0,
-    collate_fn=classic_collate_fn,
+    collate_fn=token_collate_fn,
     pin_memory=False,
     drop_last=False,
     timeout=0,
@@ -55,7 +55,7 @@ parameters['embedder'] = embedder.W2VCustomEmbedding(**embedder_params).to(param
 
 dataloader_params['dataset'] = dataset.AllSentencesDataset(
     # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
-    path='../Data/NLP_Dataset/all_setences_en_processed.tsv',
+    path='../Data/NLP_Dataset/all_setences_en.tsv',
     device=parameters['device'],
     text_column=1)
 
@@ -64,16 +64,25 @@ parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
 
 # Should set all parameters of model in this dictionary
 
+'''model_params = dict(
+    ntoken=len(parameters['embedder'].word2index),  # len(TEXT.vocab.stoi), # the size of vocabulary
+    ninp=parameters['embedder'].embedding_dim,  # embedding dimension
+    nhid=512,  # the dimension of the feedforward network model in nn.TransformerEncoder
+    nlayers=6,  # the number of nn.TransformerEncoderLayer in nn.TransformerEncoder 10-16
+    nhead=10,  # the number of heads in the multi_head_attention models
+    dropout=0.1,
+    device=parameters['device']
+)'''
+
 model_params = dict(
-    vocab_size=len(parameters['embedder'].word2index),
-    embed_size=parameters['embedder'].embedding_dim,
-    sos_token=parameters['embedder'].word2index['<sos>'],
-    eos_token=parameters['embedder'].word2index['<eos>'],
+    embedder=parameters['embedder'],
     dropout_p=0.1,
     device=parameters['device'],
     teacher_forcing_ratio=0.5,
     max_length=100
 )
+
+
 
 
 name_execution = 'FirstTestSeq2Seq'
