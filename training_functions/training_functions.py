@@ -191,6 +191,7 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
         parameters['epoch'] += 1
         batch_num = 0
         numb_sent = 0
+        prev_sent = 0
         #print(len(train_data_loader.dataset))
         for batch in train_data_loader:  # parameters['batchs']
             # print('debut du batch')
@@ -214,7 +215,7 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
             # print(target.shape)
             for di in range(len(output)):
                 # print('model output di')
-                # print(output.shape)
+                # print(output[di].shape)
                 # print(target[di].shape)
                 loss += parameters['criterion'](output[di], target[di])  # voir pourquoi unsqueeze
             loss.backward()
@@ -251,18 +252,20 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
                 # print(batch_num)
                 if batch_num % parameters['log_interval_batch'] == 0 and batch_num > 0:
                     # batch.num doit exister voir dataloader !!!
+                    prev_sent = numb_sent-prev_sent
                     cur_loss = total_loss / parameters['log_interval_batch']
                     elapsed = time.time() - parameters['log_interval_time']
                     if 'scheduler' in parameters and parameters['scheduler'] is not None:
                         parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
-                    functions.add_to_execution_file(parameters, '| epoch {:3d} | {:7d}/{:7d}sents | '
+                    functions.add_to_execution_file(parameters, '| epoch {:1d} | btch {:5d} | {:7d}/{:7d}sents(+{:3d}sents) | '
                                                                 'time {:23} | done {:3.1f}% | '
                                                                 'lr {:02.4f} | ms/batch {:5.2f} | '
                                                                 'loss {:5.2f} | ppl {:8.2f}'.format(
-                        parameters['epoch'], numb_sent, len(train_data_loader.dataset),
+                        parameters['epoch'], batch_num, numb_sent, len(train_data_loader.dataset), prev_sent,
                         functions.timeSince(start, numb_sent / len(train_data_loader.dataset)), numb_sent / len(train_data_loader.dataset) * 100,
                         parameters['lr'], elapsed * 1000 / parameters['log_interval_batch'],  # Ligne à réfléchir
                         cur_loss, math.exp(cur_loss) if cur_loss < 300 else 0))  # math.exp(cur_loss)
+                    prev_sent = numb_sent
                     if parameters['l1_loss']:
                         functions.add_to_execution_file(parameters,
                                                         '| F1: {:02.4f} | Precision: {:02.4f} | Recall: {:02.4f}'.format(

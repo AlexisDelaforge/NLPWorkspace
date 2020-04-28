@@ -37,8 +37,8 @@ dataloader_params = dict(
     drop_last=False,
     timeout=0,
     worker_init_fn=None,
-    divide_by=[2, 3, 4, 5],
-    divide_at=[10, 20, 30, 40]
+    divide_by=[2, 3, 4, 5, 6, 8],
+    divide_at=[10, 18, 25, 35, 50, 60]
 )
 
 # Should set all parameters of criterion in this dictionary
