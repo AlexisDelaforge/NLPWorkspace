@@ -27,7 +27,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=18,
+    batch_size=60,
     shuffle=False,
     batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
@@ -36,7 +36,9 @@ dataloader_params = dict(
     pin_memory=False,
     drop_last=False,
     timeout=0,
-    worker_init_fn=None
+    worker_init_fn=None,
+    divide_by=[2, 3, 4, 5],
+    divide_at=[10, 20, 30, 40]
 )
 
 # Should set all parameters of criterion in this dictionary
@@ -153,8 +155,8 @@ scheduler_params = dict(
 )
 
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
-parameters['scheduler_interval_batch'] = 5000
-parameters['valid_interval_batch'] = 5000
+parameters['scheduler_interval_batch'] = 10000
+parameters['valid_interval_batch'] = 10000
 parameters['l1_loss'] = False
 if parameters['l1_loss']:
     print('l1_loss is True')
@@ -189,44 +191,10 @@ print(torch.cuda.get_device_properties(0).total_memory)  # 1768MiB
 # print(dataloader_params['dataset'].embedder.vocabulary.word2index)
 # print(len(dataloader_params['dataset']))
 
-train_set, valid_set, test_set = torch.utils.data.random_split(
-    dataloader_params['dataset'],
-    functions.split_values(len(dataloader_params['dataset']), parameters['split_sets'])
-)
-
-print(parameters['split_sets'])
-print(train_set)
-
-train_set = torch.utils.data.Subset(dataloader_params['dataset'], range(0, parameters['split_sets'][0]))
-valid_set = torch.utils.data.Subset(dataloader_params['dataset'], range(parameters['split_sets'][0], parameters['split_sets'][1]))
-test_set = torch.utils.data.Subset(dataloader_params['dataset'], range(parameters['split_sets'][1], parameters['split_sets'][2]))
-
-if dataloader_params['batch_sampler'] is not None and dataloader_params['batch_size'] is not 1:
-    dataloader_params['batch_sampler'] = dataloader_params['batch_sampler'](
-        dataloader_params['dataset'],
-        dataloader_params['dataset'].size,
-        int(dataloader_params['batch_size'])
-    )
-    #batch_size
-    del dataloader_params['shuffle']
-    del dataloader_params['sampler']
-    del dataloader_params['drop_last']
-    del dataloader_params['batch_size']
-
-print('position 5')
-print(torch.cuda.get_device_properties(0).total_memory)
-
-print(dataloader_params['batch_sampler'])
-
-print('position 6')
-print(torch.cuda.get_device_properties(0).total_memory)
+train_data_loader, valid_data_loader, test_data_loader = functions.train_test_valid_dataloader(dataloader_params, parameters['split_sets'])
 
 functions.add_to_execution_file(parameters, 'Début du chargement des data loader')
 dataloader_time = time.time()
-
-train_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': train_set}))
-valid_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': valid_set}))
-test_data_loader = data.DataLoader(**functions.dict_change(dataloader_params, {'dataset': test_set}))
 
 functions.add_to_execution_file(parameters, 'Fin de creation des dataloader en  ' + str(round((time.time()-dataloader_time), 2))+' secondes')
 

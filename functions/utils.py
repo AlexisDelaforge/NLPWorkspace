@@ -4,6 +4,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math
 import time
+import functions
+from torch.utils import data
+from torch.utils.data import Dataset, Sampler
+
 # Own modules to handle dictionary
 
 # My code
@@ -54,8 +58,8 @@ def split_values(dataset_length, listed_len):
         if i == (len(listed_len) - 1):
             listed_len[k] = dataset_length - total_listed
         else:
-            listed_len[k] = round(listed_len[k] * dataset_length)
-            total_listed += listed_len[k]
+            listed_len[k] = total_listed + round(listed_len[k] * dataset_length)
+            total_listed = listed_len[k]
         k += 1
     if sum(listed_len) < dataset_length:
         listed_len[0] += 1
@@ -193,4 +197,95 @@ class F1_Loss_Sentences(nn.Module):
         return (1 - f1.mean()), precision.mean(), recall.mean()
 
 
-# f1_loss = F1_Loss().cuda()
+# f1_loss = F1_Loss().cuda()*
+
+# Not my code
+# https://github.com/ruotianluo/ImageCaptioning.pytorch/issues/49
+
+class SubsetSampler(Sampler):
+    def __init__(self, dataset, indices):
+        self.dataset = dataset
+        self.indices = indices
+        self.from_beg = self.indices[0]
+
+    def __iter__(self):
+        return (self.indices[i] for i in range(len(self.indices)))
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        #print(idx-self.from_beg)
+        return self.dataset[idx]
+
+
+
+# My code
+
+def train_test_valid_dataloader(dataloader_params, split_list):
+
+    split_values(len(dataloader_params['dataset']), split_list)
+
+    # print(split_list)
+
+    train_set = SubsetSampler(dataloader_params['dataset'], range(0, split_list[0]))
+    valid_set = SubsetSampler(dataloader_params['dataset'], range(split_list[0], split_list[1]))
+    test_set = SubsetSampler(dataloader_params['dataset'], range(split_list[1], split_list[2]))
+
+    if dataloader_params['batch_sampler'] is not None and dataloader_params['batch_size'] is not 1:
+
+        train_data_loader = data.DataLoader(**dict_less(dict_change(dataloader_params, {
+            'dataset': train_set,
+            'batch_sampler': dataloader_params['batch_sampler'](
+                train_set,
+                dataloader_params['dataset'].size[0: split_list[0]], # economie de place ? [0: split_list[0]]
+                int(dataloader_params['batch_size']),
+                dataloader_params['divide_by'],
+                dataloader_params['divide_at']
+            )
+
+        }), ['batch_size', 'shuffle', 'sampler', 'drop_last', 'divide_by', 'divide_at']))
+
+        # print([split_list[0], split_list[1]])
+        # print(dataloader_params['dataset'].size[0])
+        # print(dataloader_params['dataset'].size[split_list[0]: split_list[1]][1])
+        # print(dataloader_params['dataset'].size[split_list[0]: split_list[1]][2])
+        # print(dataloader_params['dataset'].size[split_list[0]: split_list[1]][13])
+        # print(dataloader_params['dataset'].size[14])
+        # print(dataloader_params['dataset'].size[split_list[0]: split_list[1]][15])
+        # print(len(dataloader_params['dataset'].size))
+
+        valid_data_loader = data.DataLoader(**dict_less(dict_change(dataloader_params, {
+            'dataset': valid_set,
+            'batch_sampler': dataloader_params['batch_sampler'](
+                valid_set,
+                dataloader_params['dataset'].size, #[split_list[0]: split_list[1]],
+                int(dataloader_params['batch_size']),
+                dataloader_params['divide_by'],
+                dataloader_params['divide_at']
+            )
+        }), ['batch_size', 'shuffle', 'sampler', 'drop_last', 'divide_by', 'divide_at']))
+
+        test_data_loader = data.DataLoader(**dict_less(dict_change(dataloader_params, {
+            'dataset': test_set,
+            'batch_sampler': dataloader_params['batch_sampler'](
+                test_set,
+                dataloader_params['dataset'].size, #[split_list[1]: split_list[2]],
+                int(dataloader_params['batch_size']),
+                dataloader_params['divide_by'],
+                dataloader_params['divide_at']
+            )
+        }), ['batch_size', 'shuffle', 'sampler', 'drop_last', 'divide_by', 'divide_at']))
+
+        del dataloader_params['shuffle']
+        del dataloader_params['sampler']
+        del dataloader_params['drop_last']
+        del dataloader_params['batch_size']
+    else:
+        print('no batch size to write')
+
+    return train_data_loader, valid_data_loader, test_data_loader
+
+
+
+

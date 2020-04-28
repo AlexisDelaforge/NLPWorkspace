@@ -81,7 +81,6 @@ def token_collate_fn(batch):
     # tuple ( N_sentences, N_words, N_embedding / N_sentences, N_words )
 
 def token_collate_fn_same_size(batch):
-
     new_batch = batch
     for sentence in range(len(new_batch)):
         new_batch[sentence] = tuple([new_batch[sentence][0], new_batch[sentence][1]])

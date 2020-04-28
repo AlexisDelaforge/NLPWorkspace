@@ -32,7 +32,7 @@ class GroupedBatchSampler(BatchSampler):
             0, i.e. they must be in the range [0, num_groups).
         batch_size (int): Size of mini-batch.
     """
-    def __init__(self, sampler, group_ids, batch_size):
+    def __init__(self, sampler, group_ids, batch_size, divide_batch_size_by=None, divide_batch_size_at=None):
         if not isinstance(sampler, Sampler):
             raise ValueError(
                 "sampler should be an instance of "
@@ -41,6 +41,18 @@ class GroupedBatchSampler(BatchSampler):
         self.sampler = sampler
         self.group_ids = group_ids
         self.batch_size = batch_size
+        if divide_batch_size_by is None:
+            self.divide_batch_size_by = [1]
+        elif not isinstance(divide_batch_size_by, list):
+            self.divide_batch_size_by = list(divide_batch_size_by)
+        else:
+            self.divide_batch_size_by = divide_batch_size_by
+        if divide_batch_size_at is None:
+            self.divide_batch_size_at = [max(self.group_ids)]
+        elif not isinstance(divide_batch_size_at, list):
+            self.divide_batch_size_at = list(divide_batch_size_at)
+        else:
+            self.divide_batch_size_at = divide_batch_size_at
 
     def __iter__(self):
         buffer_per_group = defaultdict(list)
@@ -48,15 +60,18 @@ class GroupedBatchSampler(BatchSampler):
 
         num_batches = 0
         for idx in self.sampler:
-            # print(idx) # Check pour debbug
+            # print('grp idx')
+            # print(idx)
+            # print(self.group_ids[idx]) # Check pour debbug
             group_id = self.group_ids[idx]
             buffer_per_group[group_id].append(idx)
             samples_per_group[group_id].append(idx)
-            if len(buffer_per_group[group_id]) == self.batch_size:
-                yield buffer_per_group[group_id]
-                # yield [data[ind] for ind in buffer_per_group[group_id]]
-                num_batches += 1
-                del buffer_per_group[group_id]
+            for i in range(len(self.divide_batch_size_at)-1, -1, -1):
+                if len(buffer_per_group[group_id]) == self.batch_size or (len(buffer_per_group[group_id]) >= self.batch_size/self.divide_batch_size_by[i] and group_id>self.divide_batch_size_at[i]):
+                    yield buffer_per_group[group_id]
+                    # yield [data[ind] for ind in buffer_per_group[group_id]]
+                    num_batches += 1
+                    del buffer_per_group[group_id]
             assert len(buffer_per_group[group_id]) < self.batch_size
 
         # now we have run out of elements that satisfy

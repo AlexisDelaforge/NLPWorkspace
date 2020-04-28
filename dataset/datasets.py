@@ -11,7 +11,7 @@ import pickle
 
 class AllSentencesDataset(Sampler):  # A retravailler
     def __init__(self, path, file_name, file_type,  device, text_column=1, id_column=None, name=None, sos='<sos>', eos='<eos>',
-                 pad='<pad>', unk='<unk>', tok_type='spacy'):
+                 pad='<pad>', unk='<unk>', tok_type='spacy', ):
         self.name = name
         self.path = path
         self.file = path+file_name+"."+file_type
@@ -43,20 +43,20 @@ class AllSentencesDataset(Sampler):  # A retravailler
         print('step 4')
 
     def __getitem__(self, index):
+
         if self.id_column:  # A refaire quand le else est ok
             sample = self.data.loc[self.data['id'] == index]
-            text = [self.vocabulary.word2index[str(i.text).lower()] for i in list(self.tokenizer(sample['text']))]
+            text = [self.vocabulary.word2index[str(i.text).lower()] for i in list(self.tokenizer(sample['text'].lower()))]
             target = sample['text']
             id = sample['id']
         else:
             sample = self.data.loc[index]
             text = [self.vocabulary.word2index[str(i.text).lower()] if str(
                 i.text).lower() in self.vocabulary.word2index else self.unk for i in
-                    list(self.tokenizer(sample['text']))]
+                    list(self.tokenizer(sample['text'].lower()))]
             target = [self.vocabulary.word2index[str(i.text).lower()] if str(
                 i.text).lower() in self.vocabulary.word2index else self.unk for i in
-                      list(self.tokenizer(sample['text']))]
-
+                      list(self.tokenizer(sample['text'].lower()))]
         # sample['features'] = [self.sos] + list(map(str, list(self.tokenizer(sample['features'])))) + [self.eos]
         # print(list(map(str, self.tokenizer(sample['features']))))
         # print(target)
