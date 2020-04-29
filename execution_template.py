@@ -27,7 +27,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=60,
+    batch_size=30,
     shuffle=False,
     batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
@@ -37,8 +37,8 @@ dataloader_params = dict(
     drop_last=False,
     timeout=0,
     worker_init_fn=None,
-    divide_by=[2, 3, 4, 5, 6, 8],
-    divide_at=[10, 18, 25, 35, 50, 60]
+    divide_by=[1, 2, 3, 5, 5, 6, 30],
+    divide_at=[0, 10, 15, 20, 25, 30, 50]
 )
 
 # Should set all parameters of criterion in this dictionary
@@ -150,7 +150,7 @@ parameters['optimizer'] = torch.optim.SGD(**optimizer_params)
 scheduler_params = dict(
     optimizer=parameters['optimizer'],  # will change to take parameters['optimizer']
     step_size=1,  # Each epoch do decay for 1, two epoch for 2 etc...
-    gamma=0.7,  # Multiple lr by gamma value at each update
+    gamma=0.9,  # Multiple lr by gamma value at each update
     last_epoch=-1
 )
 
@@ -163,8 +163,8 @@ if parameters['l1_loss']:
 
 parameters['train_function'] = training_functions.autoencoder_seq2seq_train
 parameters['collate_fn'] = token_collate_fn_same_size
-parameters['execution_name'] = "ThirdTestSeq2Seq"  # Always
-parameters['epochs'] = 10  # Always
+parameters['execution_name'] = "TestSurApprentissage"  # Always
+parameters['epochs'] = 1000  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params
 parameters['scheduler_params'] = scheduler_params

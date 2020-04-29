@@ -200,7 +200,9 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
             # print(len(train_data_loader[batch[1]][0]))
             # batch = parameters['collate_fn']([train_data_loader[i] for i in batch])
             parameters['model'].train()
+            #print(batch[0].shape)
             numb_sent += batch[0].size(1)
+            #print('num sentence ajouté '+str(batch[0].size(1)))
             batch_num +=1
             parameters['batch_start_time'] = time.time()
             parameters['optimizer'].zero_grad()
@@ -210,13 +212,8 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
             # print(batch[0].shape)
             # print(batch[1].shape)
             output, target = parameters['model'](batch)
-            # print('model output')
-            # print(output.shape)
-            # print(target.shape)
             for di in range(len(output)):
-                # print('model output di')
-                # print(output[di].shape)
-                # print(target[di].shape)
+                #print(str(output[di].shape)+" "+str(target[di].shape))
                 loss += parameters['criterion'](output[di], target[di])  # voir pourquoi unsqueeze
             loss.backward()
             if 'grad_norm' in parameters and parameters['grad_norm']:
@@ -285,7 +282,13 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
                 # parameters['tmps_form_last_step'] = time.time()
             else:
                 a = 1
-
+        if parameters['scheduler'] is not None and 'scheduler_interval_batch' in parameters:
+            # print('step')
+            # print(parameters['scheduler'].get_last_lr())
+            parameters['scheduler'].step()
+        if 'optimizer' in parameters:
+            # print(parameters['scheduler'].get_last_lr())
+            parameters['optimizer'].step()
         val_loss = evaluate_seq2seq(parameters, valid_data_loader, save_model=True, end_epoch=True)
         # scheduler.step()
 

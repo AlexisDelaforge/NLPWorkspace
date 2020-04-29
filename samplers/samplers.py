@@ -15,7 +15,7 @@ def _repeat_to_at_least(iterable, n):
 
 # Not my code
 # https://github.com/pytorch/vision/blob/master/references/detection/group_by_aspect_ratio.py
-# No modification
+# Lot of modifications
 
 
 class GroupedBatchSampler(BatchSampler):
@@ -58,7 +58,7 @@ class GroupedBatchSampler(BatchSampler):
         buffer_per_group = defaultdict(list)
         samples_per_group = defaultdict(list)
 
-        num_batches = 0
+        num_sents = 0
         for idx in self.sampler:
             # print('grp idx')
             # print(idx)
@@ -66,34 +66,54 @@ class GroupedBatchSampler(BatchSampler):
             group_id = self.group_ids[idx]
             buffer_per_group[group_id].append(idx)
             samples_per_group[group_id].append(idx)
-            for i in range(len(self.divide_batch_size_at)-1, -1, -1):
-                if len(buffer_per_group[group_id]) == self.batch_size or (len(buffer_per_group[group_id]) >= self.batch_size/self.divide_batch_size_by[i] and group_id>self.divide_batch_size_at[i]):
+            for i in range(len(self.divide_batch_size_at)-1, 0, -1):
+                i_fix = 0  # Use for testing len(buffer)
+                if len(buffer_per_group[group_id]) == self.batch_size:
+                    i = 0  # Taille de batch parfaite
+                if len(buffer_per_group[group_id]) >= self.batch_size/self.divide_batch_size_by[i] and group_id>=self.divide_batch_size_at[i]:
                     yield buffer_per_group[group_id]
                     # yield [data[ind] for ind in buffer_per_group[group_id]]
-                    num_batches += 1
+                    num_sents += self.batch_size/self.divide_batch_size_by[i]
                     del buffer_per_group[group_id]
-            assert len(buffer_per_group[group_id]) < self.batch_size
+                    #print('i egal : '+str(i))
+                    #print('num sentences done '+str(num_sents))
+                    #print('idx egal '+str(idx))
+                    i_fix = i  # Use for testing len(buffer)
+            assert len(buffer_per_group[group_id]) < self.batch_size/self.divide_batch_size_by[i_fix]
 
         # now we have run out of elements that satisfy
         # the group criteria, let's return the remaining
         # elements so that the size of the sampler is
         # deterministic
-        expected_num_batches = len(self)
-        num_remaining = expected_num_batches - num_batches
+        expected_num_sents = len(self)
+        #print('expected_num_sents')
+        #print(num_sents)
+        num_remaining = expected_num_sents - num_sents
+        #print('num_remaining')
+        #print(num_remaining)
         if num_remaining > 0:
             # for the remaining batches, take first the buffers with largest number
             # of elements
             for group_id, _ in sorted(buffer_per_group.items(),
                                       key=lambda x: len(x[1]), reverse=True):
-                remaining = self.batch_size - len(buffer_per_group[group_id])
-                samples_from_group_id = _repeat_to_at_least(samples_per_group[group_id], remaining)
-                buffer_per_group[group_id].extend(samples_from_group_id[:remaining])
-                assert len(buffer_per_group[group_id]) == self.batch_size
-                yield buffer_per_group[group_id]
-                num_remaining -= 1
-                if num_remaining == 0:
-                    break
+                for i in range(len(self.divide_batch_size_at) - 1, -1, -1):
+                    if group_id > self.divide_batch_size_at[i]:
+                        #print('group_id')
+                        #print(group_id)
+                        #samples_from_group_id = _repeat_to_at_least(samples_per_group[group_id], remaining)
+                        #buffer_per_group[group_id].extend(samples_from_group_id[:int(remaining)])
+                        assert len(buffer_per_group[group_id]) <= self.batch_size / self.divide_batch_size_by[i]
+                        if len(buffer_per_group[group_id]) != 0:
+                            yield buffer_per_group[group_id]
+                        i = -2 # Sortir de la boucle
+                        num_remaining -= len(buffer_per_group[group_id])
+                        del buffer_per_group[group_id]
+                        #print('ca c le remaining')
+                        #print(num_remaining)
+                        if num_remaining == 0:
+                            break
+        #print(num_remaining)
         assert num_remaining == 0
 
     def __len__(self):
-        return len(self.sampler) // self.batch_size
+        return len(self.sampler)

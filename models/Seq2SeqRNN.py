@@ -77,7 +77,7 @@ class AttnDecoderRNN(nn.Module):
         self.max_length = max_length
         self.device = device
 
-        self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
+        self.attn = nn.Linear(self.hidden_size * 2, self.max_length+1) # Gestion plus longue phrase
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
         self.gru = nn.GRU(self.hidden_size, self.hidden_size, num_layers=num_layers, bidirectional=bidirectional)
@@ -98,6 +98,10 @@ class AttnDecoderRNN(nn.Module):
         # print(embedded.shape)
         attn_weights = F.softmax(
             self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
+
+        # print(attn_weights.unsqueeze(0).shape)
+        # print(encoder_outputs.unsqueeze(0).shape)
+
         attn_applied = torch.bmm(attn_weights.unsqueeze(0),
                                  encoder_outputs.unsqueeze(0))
 
@@ -160,7 +164,8 @@ class AttnAutoEncoderRNN(nn.Module):
         target_length = target_tensor.size(0)
         encoder_hidden = self.encoder.init_hidden(batch_size)
 
-        encoder_outputs = torch.zeros(self.max_length, self.encoder.hidden_size).to(self.device)
+        # simple declaration, self.max_length+1 gérer plus longue phrases + EOS
+        encoder_outputs = torch.zeros(self.max_length+1, self.encoder.hidden_size).to(self.device)
 
         for ei in range(input_length):
             # print('shape premier batch de lettres')
@@ -188,7 +193,7 @@ class AttnAutoEncoderRNN(nn.Module):
         # print(encoder_hidden.shape)
         decoder_hidden = encoder_hidden
 
-        use_teacher_forcing = True # if random.random() < self.teacher_forcing_ratio else False
+        use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio else False
         # print(use_teacher_forcing)
         # print('a changer au dessus')
         decoder_output = None  # Simple declaration
@@ -212,6 +217,7 @@ class AttnAutoEncoderRNN(nn.Module):
                 # print('target_tensor')
                 # print(target_tensor.shape)
                 # print(target_tensor[di].unsqueeze(0).shape)
+
                 decoder_input = torch.cat([decoder_input, target_tensor[di].unsqueeze(0)], dim=0)  # Teacher forcing
                 # print('decoder_input shape')
                 # print(decoder_input.shape)
@@ -220,9 +226,15 @@ class AttnAutoEncoderRNN(nn.Module):
                 if decoder_input.squeeze(0)[-1][0].item() == self.eos_token:  # Test le premier (batch de même size)
                     #print('break')
                     break
+            #print('final shape')
+            #print(torch.stack(decoder_outputs, dim=0).shape)
+            #print('target_tensor shape')
+            #print(target_tensor.shape)
+            return torch.stack(decoder_outputs, dim=0), target_tensor
         else:
             # Without teacher forcing: use its own predictions as the next input
-            for di in range(target_length):
+            breakable = [0]*batch_size
+            for di in range(target_length+1): # +1 for SOS token
                 # print('shape decod premier batch de lettres')
                 # print(decoder_input.shape)  # Batch X Embed Dim
                 # print('shape decod encoder hidden')
@@ -233,12 +245,16 @@ class AttnAutoEncoderRNN(nn.Module):
                 topv, topi = decoder_output.topk(1)
                 # print(topv)
                 # print(topi)
-                decoder_input = torch.stack([decoder_input, topi.permute(1, 0).detach()], dim=0)  # detach from history as input
+                decoder_input = torch.cat([decoder_input, topi.permute(1, 0).detach()], dim=0)  # detach from history as input
                 # print('decoder_input shape')
                 # print(decoder_input.shape)
-                print('shape avant break')
-                print(decoder_input.shape)
-                if decoder_input.squeeze(0)[di][0].item() == self.eos_token:  # Test le premier (batch de même size)
-                    break
-
-        return torch.stack(decoder_outputs, dim=0), target_tensor
+                for i in range(batch_size):
+                    if decoder_input[-1][i].item() == self.eos_token:  # Test le premier (batch de même size)
+                        breakable[i] = 1
+                    if sum(breakable) == batch_size:
+                        break
+            #print('final shape')
+            #print(torch.stack(torch.unbind(torch.stack(decoder_outputs, dim=0), dim=0)[1:], dim=0).shape)
+            #print('target_tensor shape')
+            #print(target_tensor.shape)
+            return torch.stack(torch.unbind(torch.stack(decoder_outputs, dim=0), dim=0)[1:],dim=0), target_tensor

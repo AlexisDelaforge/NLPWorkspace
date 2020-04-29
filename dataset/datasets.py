@@ -18,7 +18,7 @@ class AllSentencesDataset(Sampler):  # A retravailler
         self.device = device
         print('step 1')
         if id_column is None:
-            self.data = pd.read_csv(self.file, usecols=[text_column], sep='\t')  # , nrows=401)
+            self.data = pd.read_csv(self.file, usecols=[text_column], sep='\t', nrows=500)  # , nrows=401)
             self.id_column = False
             self.data.columns = ['text']
         else:
@@ -40,6 +40,7 @@ class AllSentencesDataset(Sampler):  # A retravailler
             self.size = [len(self.tokenizer(str(self.data['text'][i]).lower())) for i in range(len(self.data))]
             pickle.dump(self.size, open(self.path+file_name+"_batch_len.pkl", "wb"))
         # self.size = [len(self.tokenizer(str(self.data['text'][i]).lower())) for i in range(len(self.data))]
+        self.size = self.size[:500]
         print('step 4')
 
     def __getitem__(self, index):
