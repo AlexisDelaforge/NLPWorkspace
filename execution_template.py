@@ -14,7 +14,7 @@ import samplers
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# device = torch.device("cpu")
+device = torch.device("cuda:0")
 print(device)
 
 # Create the parameters dict, will be fill after
@@ -37,8 +37,8 @@ dataloader_params = dict(
     drop_last=False,
     timeout=0,
     worker_init_fn=None,
-    divide_by=[1, 2, 3, 5, 5, 6, 30],
-    divide_at=[0, 10, 15, 20, 25, 30, 50]
+    divide_by=[1, 2, 5, 30],
+    divide_at=[0, 20, 30, 50]
 )
 
 # Should set all parameters of criterion in this dictionary
@@ -64,7 +64,7 @@ print(torch.cuda.memory_allocated(0))  # 1033MiB
 dataloader_params['dataset'] = dataset.AllSentencesDataset(
     # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
     path='../Data/NLP_Dataset/',
-    file_name='all_setences_en',
+    file_name='20all_setences_en',
     file_type='tsv',
     device=parameters['device'],
     text_column=1)
@@ -103,7 +103,9 @@ model_params = dict(
     dropout_p=0.1,
     device=parameters['device'],
     teacher_forcing_ratio=0.5,
+    num_layers=2,
     bidirectional=False,
+    encode_size=512,
     max_length=max(dataloader_params['dataset'].size)
 )
 
@@ -128,7 +130,7 @@ print(torch.cuda.get_device_properties(0).total_memory)
 
 # Should set all parameters of optimizer in this dictionary
 
-parameters['lr'] = 0.01  # Always
+parameters['lr'] = 1  # Always
 
 optimizer_params = dict(
     params=parameters['model'].parameters(),
@@ -157,24 +159,25 @@ scheduler_params = dict(
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
 parameters['scheduler_interval_batch'] = 10000
 parameters['valid_interval_batch'] = 10000
+parameters['valid_interval_epoch'] = 1
 parameters['l1_loss'] = False
 if parameters['l1_loss']:
     print('l1_loss is True')
 
 parameters['train_function'] = training_functions.autoencoder_seq2seq_train
 parameters['collate_fn'] = token_collate_fn_same_size
-parameters['execution_name'] = "TestSurApprentissage"  # Always
-parameters['epochs'] = 1000  # Always
+parameters['execution_name'] = "TestShortSentences"  # Always
+parameters['epochs'] = 100000  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params
 parameters['scheduler_params'] = scheduler_params
 parameters['embedder_params'] = embedder_params
 parameters['model_params'] = model_params
-parameters['log_interval_batch'] = 10
+parameters['log_interval_batch'] = 1
 # parameters['log_interval_batch'] = example de ligne que l'on veut retirer // Ligne à commenter
 parameters['batch_size'] = dataloader_params['batch_size'] # Always
 parameters['eval_batch_size'] = 10  # Always
-parameters['split_sets'] = [.98, .01, .01]  # Use to set train, eval and test dataset size, should be egal to 1
+parameters['split_sets'] = [.95, .025, .025]  # Use to set train, eval and test dataset size, should be egal to 1
 
 functions.save_execution_file(parameters)
 
@@ -203,6 +206,9 @@ print('position 7')
 print(torch.cuda.get_device_properties(0).total_memory)
 
 functions.add_to_execution_file(parameters, 'Fin de creation des dataloader en  ' + str(round((time.time()-parameters['tmps_form_last_step']), 2))+' secondes')
+
+functions.add_to_execution_file(parameters, 'Nombre de paramètres du model : '+str(functions.count_parameters(parameters['model']))+' params')
+
 parameters['tmps_form_last_step'] = time.time()
 
 #print(parameters['model'].device)

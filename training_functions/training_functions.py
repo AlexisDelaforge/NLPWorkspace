@@ -4,7 +4,7 @@ import math
 import torch
 import os
 import glob
-
+import training_functions
 
 # Code from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 # Change : Yes
@@ -212,9 +212,18 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
             # print(batch[0].shape)
             # print(batch[1].shape)
             output, target = parameters['model'](batch)
+            #functions.add_to_execution_file(parameters, 'La phrase et son output')
+            #sentences, values = training_functions.tensor_to_sentences(output, parameters['embedder'].index2word)
+            #functions.add_to_execution_file(parameters, str(target[0]))
+            #functions.add_to_execution_file(parameters, str(sentences))
+            #functions.add_to_execution_file(parameters, str(values))
+            #functions.add_to_execution_file(parameters, 'Fin phrase et son output')
             for di in range(len(output)):
                 #print(str(output[di].shape)+" "+str(target[di].shape))
                 loss += parameters['criterion'](output[di], target[di])  # voir pourquoi unsqueeze
+            loss = loss/len(output)
+            #print('/ len(target) before backward()') # /len(target) before backward()
+
             loss.backward()
             if 'grad_norm' in parameters and parameters['grad_norm']:
                 parameters.grad_norm(parameters['model'].parameters())
@@ -289,7 +298,9 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
         if 'optimizer' in parameters:
             # print(parameters['scheduler'].get_last_lr())
             parameters['optimizer'].step()
-        val_loss = evaluate_seq2seq(parameters, valid_data_loader, save_model=True, end_epoch=True)
+        if 'valid_interval_epoch' not in parameters or ('valid_interval_epoch' in parameters and parameters['epoch'] % parameters[
+            'valid_interval_epoch'] == 0 and parameters['epoch'] != 0):
+            val_loss = evaluate_seq2seq(parameters, valid_data_loader, save_model=True, end_epoch=True)
         # scheduler.step()
 
 

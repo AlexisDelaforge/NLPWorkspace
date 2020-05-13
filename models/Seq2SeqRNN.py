@@ -9,7 +9,7 @@ import random
 # Modifié
 
 class EncoderRNN(nn.Module):
-    def __init__(self, embedder, num_layers=1, bidirectional=False, device='cpu'):
+    def __init__(self, embedder, num_layers=1, bidirectional=False, encode_size = 300 ,device='cpu'):
         super(EncoderRNN, self).__init__()
 
         self.embedding = embedder
@@ -17,7 +17,8 @@ class EncoderRNN(nn.Module):
         self.input_size = len(self.embedding.word2index)
         self.device = device
         self.embedding = nn.Embedding(self.input_size, self.hidden_size)
-        self.gru = nn.GRU(self.hidden_size, self.hidden_size, num_layers=num_layers, bidirectional=bidirectional).to(
+        self.encode_size = encode_size
+        self.gru = nn.GRU(self.hidden_size, self.encode_size, num_layers=num_layers, bidirectional=bidirectional).to(
             self.device)
         self.num_layers = num_layers
         self.bidirectional = bidirectional
@@ -27,17 +28,21 @@ class EncoderRNN(nn.Module):
             self.num_layers_X_directions = 1 * self.num_layers
 
     def forward(self, input, hidden):
-        embedded = self.embedding(input)  # .view(1, 1, -1)
+        # print(input)
+        embedded = self.embedding(input.long())  # .view(1, 1, -1)
         output = embedded
         # print('Encoder zone')
         # print(input.shape)
         # print(hidden.shape)
         # print(output.shape)
         output, hidden = self.gru(output, hidden)
+        # print('Encoder zone output')
+        # print(output.shape)
+        # print(hidden.shape)
         return output, hidden
 
     def init_hidden(self, batch_size):
-        return torch.zeros(self.num_layers_X_directions, batch_size, self.hidden_size).to(self.device)
+        return torch.zeros(self.num_layers_X_directions, batch_size, self.encode_size).to(self.device)
 
 
 class DecoderRNN(nn.Module):
@@ -68,7 +73,7 @@ class DecoderRNN(nn.Module):
 
 
 class AttnDecoderRNN(nn.Module):
-    def __init__(self, embedder, max_length, dropout_p=0.1, num_layers=1, bidirectional=False, device='cpu'):
+    def __init__(self, embedder, max_length, dropout_p=0.1, num_layers=1, bidirectional=False, encode_size = 300, device='cpu'):
         super(AttnDecoderRNN, self).__init__()
         self.embedding = embedder.to(device)
         self.hidden_size = self.embedding.embedding_dim
@@ -76,12 +81,14 @@ class AttnDecoderRNN(nn.Module):
         self.dropout_p = dropout_p
         self.max_length = max_length
         self.device = device
-
-        self.attn = nn.Linear(self.hidden_size * 2, self.max_length+1) # Gestion plus longue phrase
-        self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
+        self.encode_size = encode_size
+        # self.attn = nn.Linear(self.hidden_size * 2, self.max_length+1) # Gestion plus longue phrase
+        self.attn = nn.Linear(self.hidden_size + self.encode_size, self.max_length+1) # Gestion plus longue phrase
+        # self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
+        self.attn_combine = nn.Linear(self.hidden_size + self.encode_size, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        self.gru = nn.GRU(self.hidden_size, self.hidden_size, num_layers=num_layers, bidirectional=bidirectional)
-        self.out = nn.Linear(self.hidden_size, self.output_size)
+        self.gru = nn.GRU(self.hidden_size, self.encode_size, num_layers=num_layers, bidirectional=bidirectional)
+        self.out = nn.Linear(self.encode_size, self.output_size)
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         if self.bidirectional:
@@ -96,6 +103,7 @@ class AttnDecoderRNN(nn.Module):
         # print(input.shape)
         # print(hidden.shape)
         # print(embedded.shape)
+        # print(torch.cat((embedded[0], hidden[0]), 1).shape)
         attn_weights = F.softmax(
             self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
 
@@ -109,6 +117,10 @@ class AttnDecoderRNN(nn.Module):
         output = self.attn_combine(output).unsqueeze(0)
 
         output = F.relu(output)
+        # print('c la wax')
+        # print(output.shape)
+        # print('c la wax 2')
+        # print(hidden.shape)
         output, hidden = self.gru(output, hidden)
         # print(output.shape)
         output = F.log_softmax(self.out(output[0]), dim=1)
@@ -129,7 +141,7 @@ class AttnDecoderRNN(nn.Module):
 
 
 class AttnAutoEncoderRNN(nn.Module):
-    def __init__(self, embedder, max_length, num_layers=1, bidirectional=False, dropout_p=0.1, device='cpu', teacher_forcing_ratio=0.5):
+    def __init__(self, embedder, max_length, num_layers=1, bidirectional=False, encode_size= 300, dropout_p=0.1, device='cpu', teacher_forcing_ratio=0.5):
         super(AttnAutoEncoderRNN, self).__init__()
         self.max_length = max_length  # longueur maximum de la prediction
         self.device = device
@@ -138,8 +150,9 @@ class AttnAutoEncoderRNN(nn.Module):
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.dropout_p = dropout_p
-        self.encoder = EncoderRNN(embedder, num_layers=self.num_layers, bidirectional=self.bidirectional, device=self.device)
-        self.decoder = AttnDecoderRNN(embedder, self.max_length, dropout_p=self.dropout_p, num_layers=self.num_layers, bidirectional=self.bidirectional, device=self.device)
+        self.encode_size = encode_size
+        self.encoder = EncoderRNN(embedder, num_layers=self.num_layers, bidirectional=self.bidirectional, encode_size=self.encode_size, device=self.device)
+        self.decoder = AttnDecoderRNN(embedder, self.max_length, dropout_p=self.dropout_p, num_layers=self.num_layers, bidirectional=self.bidirectional, encode_size=self.encode_size, device=self.device)
         self.sos_token = self.embedder.get_index('<sos>')
         self.sos_token = torch.tensor(self.sos_token).to(self.device)
         self.sos_tensor = self.embedder(self.sos_token).to(self.device)
@@ -165,7 +178,8 @@ class AttnAutoEncoderRNN(nn.Module):
         encoder_hidden = self.encoder.init_hidden(batch_size)
 
         # simple declaration, self.max_length+1 gérer plus longue phrases + EOS
-        encoder_outputs = torch.zeros(self.max_length+1, self.encoder.hidden_size).to(self.device)
+        encoder_outputs = torch.zeros(self.max_length+1, self.encoder.encode_size).to(self.device)
+        # print(encoder_outputs.shape)
 
         for ei in range(input_length):
             # print('shape premier batch de lettres')
@@ -174,6 +188,8 @@ class AttnAutoEncoderRNN(nn.Module):
             # print(input_tensor[ei].shape) # Batch X Hidden size
             encoder_output, encoder_hidden = self.encoder(
                 input_tensor[ei].unsqueeze(0).to(self.device), encoder_hidden)  # Voir pourquoi .unsqueeze(0)
+            # print(encoder_outputs.shape)
+            # print(encoder_output.shape)
             encoder_outputs[ei] = encoder_output[0, 0]
         # print(input_tensor[ei].unsqueeze(0).shape)
         # print(self.eos_tensor.shape)

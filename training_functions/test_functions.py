@@ -14,11 +14,12 @@ def word_to_idx(sentences, vocab):
     #print(longest_sentences)
     sentences_idx = []
     for sentence in sentences :
-        sentence_idx = [vocab['<sos>']]
+        sentence_idx = []
+        #sentence_idx = [vocab['<sos>']]
         sentence_idx += [vocab[word] for word in sentence]
-        while len(sentence_idx) <= longest_sentences:
-            sentence_idx += [vocab['<pad>']]
-        sentence_idx += [vocab['<eos>']]
+        #while len(sentence_idx) <= longest_sentences:
+            #sentence_idx += [vocab['<pad>']]
+        #sentence_idx += [vocab['<eos>']]
         sentences_idx.append(sentence_idx)
     return torch.tensor(sentences_idx) # batch x len sentences
 
@@ -36,10 +37,21 @@ def tensor_to_sentences(tensors, idx_to_word):
     # print(sentences_idx.shape)
     # print(torch.topk(tensors, k=10, dim=1))
     sentences = []
-    for sentence_tensor in sentences_idx.unbind(0):
+    sentences_value = []
+    #print('dans algo')
+    #print(tensors.shape)
+    for sentence_tensor in tensors.unbind(0):
         sentence = []
-        for word_tensor in sentence_tensor.squeeze(0).unbind(0):
+        sentence_value = []
+        #print(sentence_tensor.shape)
+        for word_tensor in sentence_tensor.unbind(0):
+            #print(word_tensor.shape)
+            topv, topi = word_tensor.topk(1)
+            #print(topv)
+            #print(topi)
             # print(word_tensor)
-            sentence.append(idx_to_word[word_tensor.item()])
+            sentence.append(idx_to_word[topi.item()])
+            sentence_value.append(topv.item())
         sentences.append(sentence)
-    return sentences
+        sentences_value.append(sentence_value)
+    return sentences, sentences_value

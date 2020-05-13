@@ -286,6 +286,9 @@ def train_test_valid_dataloader(dataloader_params, split_list):
 
     return train_data_loader, valid_data_loader, test_data_loader
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 
 
