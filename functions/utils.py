@@ -7,6 +7,7 @@ import time
 import functions
 from torch.utils import data
 from torch.utils.data import Dataset, Sampler
+import random
 
 # Own modules to handle dictionary
 
@@ -205,19 +206,32 @@ class F1_Loss_Sentences(nn.Module):
 class SubsetSampler(Sampler):
     def __init__(self, dataset, indices):
         self.dataset = dataset
-        self.indices = indices
+        self.indices = list(indices)
+        self.size = self.dataset.data['size'][indices[0]:indices[-1]]
         self.from_beg = self.indices[0]
+        self.matching = dict()
+        for i in range(len(self.indices)):
+            self.matching[i] = self.indices[i]
 
     def __iter__(self):
-        return (self.indices[i] for i in range(len(self.indices)))
+        return (i for i in range(len(self.indices)))
 
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, idx):
         #print(idx-self.from_beg)
-        return self.dataset[idx]
+        return self.dataset[self.matching[idx]]
 
+    def shuffle(self):
+        print('salut')
+        c = list(zip(self.indices, self.size))
+        random.shuffle(c)
+        self.indices, self.size = zip(*c)
+        for i in range(len(self.indices)):
+            self.matching[i] = self.indices[i]
+
+        return self.size  # Retourne le grp_idx pour le GrpBatchSampler
 
 
 # My code
@@ -238,8 +252,9 @@ def train_test_valid_dataloader(dataloader_params, split_list):
             'dataset': train_set,
             'batch_sampler': dataloader_params['batch_sampler'](
                 train_set,
-                dataloader_params['dataset'].size[0: split_list[0]], # economie de place ? [0: split_list[0]]
+                train_set.size, # economie de place ? [0: split_list[0]]
                 int(dataloader_params['batch_size']),
+                True,
                 dataloader_params['divide_by'],
                 dataloader_params['divide_at']
             )
@@ -259,8 +274,9 @@ def train_test_valid_dataloader(dataloader_params, split_list):
             'dataset': valid_set,
             'batch_sampler': dataloader_params['batch_sampler'](
                 valid_set,
-                dataloader_params['dataset'].size, #[split_list[0]: split_list[1]],
+                valid_set.size, #[split_list[0]: split_list[1]],
                 int(dataloader_params['batch_size']),
+                True,
                 dataloader_params['divide_by'],
                 dataloader_params['divide_at']
             )
@@ -270,8 +286,9 @@ def train_test_valid_dataloader(dataloader_params, split_list):
             'dataset': test_set,
             'batch_sampler': dataloader_params['batch_sampler'](
                 test_set,
-                dataloader_params['dataset'].size, #[split_list[1]: split_list[2]],
+                test_set.size, #[split_list[1]: split_list[2]],
                 int(dataloader_params['batch_size']),
+                True,
                 dataloader_params['divide_by'],
                 dataloader_params['divide_at']
             )

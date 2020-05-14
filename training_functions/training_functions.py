@@ -5,6 +5,7 @@ import torch
 import os
 import glob
 import training_functions
+import random
 
 # Code from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 # Change : Yes
@@ -177,6 +178,8 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
     print_every = 100
     plot_every = 5000
 
+    train_data_loader
+
     # encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     # decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     # training_pairs = [tensorsFromPair(random.choice(pairs))
@@ -219,7 +222,7 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
             #functions.add_to_execution_file(parameters, str(values))
             #functions.add_to_execution_file(parameters, 'Fin phrase et son output')
             for di in range(len(output)):
-                #print(str(output[di].shape)+" "+str(target[di].shape))
+                # print(str(output[di].shape)+" "+str(target[di].shape))
                 loss += parameters['criterion'](output[di], target[di])  # voir pourquoi unsqueeze
             loss = loss/len(output)
             #print('/ len(target) before backward()') # /len(target) before backward()
@@ -271,6 +274,11 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
                         functions.timeSince(start, numb_sent / len(train_data_loader.dataset)), numb_sent / len(train_data_loader.dataset) * 100,
                         parameters['lr'], elapsed * 1000 / parameters['log_interval_batch'],  # Ligne à réfléchir
                         cur_loss, math.exp(cur_loss) if cur_loss < 300 else 0))  # math.exp(cur_loss)
+                    #print(target)
+                    #print(output.topk(1))
+                    random_id = random.randint(0, batch[0].size(1)-1) # secure the choosen 0 / -1
+                    functions.add_to_execution_file(parameters, str(training_functions.sentences_idx_to_word(target.transpose(1,0), parameters['embedder'].word2index)[random_id]))
+                    functions.add_to_execution_file(parameters, str(training_functions.tensor_to_sentences(output, parameters['embedder'].index2word)[0][random_id]))
                     prev_sent = numb_sent
                     if parameters['l1_loss']:
                         functions.add_to_execution_file(parameters,
@@ -318,35 +326,38 @@ def evaluate_seq2seq(parameters, valid_data_loader, save_model=False, end_epoch=
     valid_total_loss = 0.
     # ntokens = len(parameters['embedder'].index2word)
     print('debut val')
+    batch_num = 0
     with torch.no_grad():
         for batch in valid_data_loader:  # parameters['batchs']
+            batch_num += 1
             # data, targets = get_batch(data_source, i)
             output, target = parameters['model'](batch)  # écrire function one_train
             # valid_loss = parameters['criterion'](output, target)
+            loss = 0
             for di in range(len(output)):
                 # print('model output di')
                 # print(output.shape)
                 # print(target[di].shape)
-                valid_total_loss += parameters['criterion'](output[di], target[di])  # voir pourquoi unsqueeze
-
-    val_loss = valid_total_loss / (len(valid_data_loader))  # valid_total_loss / (len(valid_data_loader) - 1)
+                loss += parameters['criterion'](output[di], target[di])  # voir pourquoi unsqueeze
+            valid_total_loss += loss / len(output)
+    valid_total_loss = valid_total_loss / batch_num  # valid_total_loss / (len(valid_data_loader) - 1)
     functions.add_to_execution_file(parameters, '-' * 89)
     if end_epoch:
         functions.add_to_execution_file(parameters, '| end of epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                                                     'valid ppl {:8.2f}'.format(parameters['epoch'],
                                                                                (time.time() - start_time),
-                                                                               val_loss, math.exp(
-                val_loss) if val_loss < 300 else 0))
+                                                                               valid_total_loss, math.exp(
+                valid_total_loss) if valid_total_loss < 300 else 0))
     else:
         functions.add_to_execution_file(parameters, '| inside epoch {:3d} | time: {:5.2f}s | valid loss {:5.2f} | '
                                                     'valid ppl {:8.2f}'.format(parameters['epoch'],
                                                                                (time.time() - start_time),
-                                                                               val_loss, math.exp(
-                val_loss) if val_loss < 300 else 0))
+                                                                               valid_total_loss, math.exp(
+                valid_total_loss) if valid_total_loss < 300 else 0))
     functions.add_to_execution_file(parameters, '-' * 89)
     if save_model:
-        best_model_and_save(parameters, val_loss)
-    return val_loss
+        best_model_and_save(parameters, valid_total_loss)
+    return valid_total_loss
 
 
 def one_train(bacth, parameters):

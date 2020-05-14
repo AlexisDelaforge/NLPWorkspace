@@ -95,7 +95,7 @@ model_params = dict(
     max_length=10  # 99 pour le test
 )
 
-
+cross_entropy = nn.CrossEntropyLoss()
 
 name_execution = 'FromGPU4'
 
@@ -105,7 +105,7 @@ model = models.AttnAutoEncoderRNN(**model_params).to(parameters['device'])  #mod
 #with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
     #embedder = pkl.load(f)
 embedder = parameters['embedder']
-for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch*.pt"):
+for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch38.pt"):
     print('model import : '+str(f))
     model.load_state_dict(torch.load(f, map_location=device))
 model.eval().to(device)
@@ -116,22 +116,40 @@ embedder.index2word = {v: k for k, v in embedder.word2index.items()}
 #     if param.requires_grad:
 #         print (name, param.data)
 sentence_to_test = [
-    ['the','virus','is','still','out','there','.'],
-    ['i','am','a','phd','student','in','neural','network','.'],
-    ['montpellier','is','a','city','in','france','.'],
-    ['fuck','uno','new','york','diabetes','labrador','.']
+    # ['the','virus','is','still','out','there','.'],
+    # ['i','am','a','phd','student','in','neural','network','.'],
+    # ['montpellier','is','a','city','in','france','.'],
+    # ['fuck','uno','new','york','diabetes','labrador','.'],
+    # ['i','will','never','let','you','down','.'],
+    ['indeed', ',', 'i', 'knew', 'it', 'well', '.']
+    # ['dolphins','can','not','hide','from','us','.'],
+    # ['is', 'anyone', 'interested', 'in', 'medical', 'deep', 'networking', 'with', 'nlp', '.'],
+    # ['i', 'am', 'looking', 'for', 'a', 'data', 'analytics', 'position', '.'],
+    # ['academic', 'researchers', 'need', 'to', 'worry', 'about', 'deep', 'learning', 'models', '!'],
+    # ['<unk>']
 ]
 # target = training_functions.word_to_idx(sentence_to_test, embedder.word2index).to(device)
 # input = embedder(target)
 #print(target.shape)
 #print(input.shape)
-for sentence in sentence_to_test:
-    target = training_functions.word_to_idx([sentence], embedder.word2index).to(device)
-    output, target = model(tuple([target, target]))
-    #print(target.shape)
-    #print(output.shape)
-    #print(target.shape)
-    sentences, values = training_functions.tensor_to_sentences(output, embedder.index2word)
-    print(sentence)
-    print(sentences)
-    print(values[0])
+#for sentence in sentence_to_test:
+target = training_functions.word_to_idx(sentence_to_test, embedder.word2index).to(device)
+target = target.transpose(1,0)
+print(target.transpose(1,0).shape)
+output, target = model(tuple([target, target]))
+print('cross_entropy')
+print(output.shape)
+print(target.shape)
+loss = 0
+for di in range(len(output)):
+    # print(str(output[di].shape)+" "+str(target[di].shape))
+    loss += cross_entropy(output[di], target[di])  # voir pourquoi unsqueeze
+loss = loss/len(output)
+print(loss)
+#print(target.shape)
+print(output.shape)
+#print(target.shape)
+sentences, values = training_functions.tensor_to_sentences(output, embedder.index2word)
+print(sentence_to_test)
+print(sentences)
+print(values)

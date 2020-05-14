@@ -11,14 +11,14 @@ import pickle
 
 class AllSentencesDataset(Sampler):  # A retravailler
     def __init__(self, path, file_name, file_type,  device, text_column=1, id_column=None, name=None, sos='<sos>', eos='<eos>',
-                 pad='<pad>', unk='<unk>', tok_type='spacy', ):
+                 pad='<pad>', unk='<unk>', tok_type='spacy'):
         self.name = name
         self.path = path
         self.file = path+file_name+"."+file_type
         self.device = device
         print('step 1')
         if id_column is None:
-            self.data = pd.read_csv(self.file, usecols=[text_column], sep='\t') #, nrows=4)  # , nrows=401)
+            self.data = pd.read_csv(self.file, usecols=[text_column], sep='\t') #, nrows=10000) #, nrows=4)  # , nrows=401)
             self.id_column = False
             self.data.columns = ['text']
         else:
@@ -36,11 +36,15 @@ class AllSentencesDataset(Sampler):  # A retravailler
         print('step 3')
         if pathos.exists(self.path+file_name+"_batch_len.pkl"):
             self.size = pickle.load(open(self.path+file_name+"_batch_len.pkl", "rb"))
+            self.data['size'] = self.size # [:10000]
         else:
             self.size = [len(self.tokenizer(str(self.data['text'][i]).lower())) for i in range(len(self.data))]
             pickle.dump(self.size, open(self.path+file_name+"_batch_len.pkl", "wb"))
+            self.data['size'] = self.size
         # self.size = [len(self.tokenizer(str(self.data['text'][i]).lower())) for i in range(len(self.data))]
-        self.size = self.size # [:4]
+        self.data = self.data.sample(frac=1).reset_index(drop=True)
+        self.size = self.data['size'] # [:4]
+        # print(self.data.head())
         print('step 4')
 
     def __getitem__(self, index):
@@ -73,6 +77,10 @@ class AllSentencesDataset(Sampler):  # A retravailler
 
     def set_vocabulary(self, vocabulary):
         self.vocabulary = vocabulary
+
+    def shuffle(self):
+        self.data = self.data.sample(frac=1).reset_index(drop=True)
+        self.size = self.data['size']  # [:4]
 
     def set_embedder(self, parameters, padable=True):  # Voir pour le freeze des parameters of nn.Embedding
         print('position setembed 1')

@@ -32,7 +32,7 @@ class GroupedBatchSampler(BatchSampler):
             0, i.e. they must be in the range [0, num_groups).
         batch_size (int): Size of mini-batch.
     """
-    def __init__(self, sampler, group_ids, batch_size, divide_batch_size_by=None, divide_batch_size_at=None):
+    def __init__(self, sampler, group_ids, batch_size, shuffle=True, divide_batch_size_by=None, divide_batch_size_at=None):
         if not isinstance(sampler, Sampler):
             raise ValueError(
                 "sampler should be an instance of "
@@ -41,6 +41,7 @@ class GroupedBatchSampler(BatchSampler):
         self.sampler = sampler
         self.group_ids = group_ids
         self.batch_size = batch_size
+        self.shuffle = shuffle
         if divide_batch_size_by is None:
             self.divide_batch_size_by = [1]
         elif not isinstance(divide_batch_size_by, list):
@@ -55,14 +56,16 @@ class GroupedBatchSampler(BatchSampler):
             self.divide_batch_size_at = divide_batch_size_at
 
     def __iter__(self):
+        if self.shuffle:
+            self.group_ids = self.sampler.shuffle()
         buffer_per_group = defaultdict(list)
         samples_per_group = defaultdict(list)
-
+        print(type(self.sampler))
         num_sents = 0
         for idx in self.sampler:
-            # print('grp idx')
-            # print(idx)
-            # print(self.group_ids[idx]) # Check pour debbug
+            print('grp idx')
+            print(idx)
+            print(self.group_ids[idx]) # Check pour debbug
             group_id = self.group_ids[idx]
             buffer_per_group[group_id].append(idx)
             samples_per_group[group_id].append(idx)

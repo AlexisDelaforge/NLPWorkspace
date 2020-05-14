@@ -4,19 +4,25 @@ def sentences_idx_to_word(sentences_idx, vocab):
     idx_word = {v: k for k, v in vocab.items()}
     idx_word[0] = '<unk>'
     sentences = []
-    for sentence_idx in sentences_idx :
-        sentence = [idx_word[int(idx)] for idx in sentence_idx]
-        sentences.append(sentence)
+    if len(sentences_idx.shape) != 1:
+        for sentence_idx in sentences_idx :
+            sentence = [idx_word[int(idx)] for idx in sentence_idx]
+            sentences.append(sentence)
+    else:
+        sentences = [idx_word[int(idx)] for idx in sentences_idx]
     return sentences
 
 def word_to_idx(sentences, vocab):
-    longest_sentences = max(list(map(len,sentences)))
+    longest_sentences = max(list(map(len, sentences)))
     #print(longest_sentences)
     sentences_idx = []
     for sentence in sentences :
         sentence_idx = []
-        #sentence_idx = [vocab['<sos>']]
-        sentence_idx += [vocab[word] for word in sentence]
+        for word in sentence:
+            if word in vocab:
+                sentence_idx.append(vocab[word])
+            else:
+                sentence_idx.append(vocab['<unk>'])
         #while len(sentence_idx) <= longest_sentences:
             #sentence_idx += [vocab['<pad>']]
         #sentence_idx += [vocab['<eos>']]
@@ -40,7 +46,7 @@ def tensor_to_sentences(tensors, idx_to_word):
     sentences_value = []
     #print('dans algo')
     #print(tensors.shape)
-    for sentence_tensor in tensors.unbind(0):
+    for sentence_tensor in tensors.unbind(1):
         sentence = []
         sentence_value = []
         #print(sentence_tensor.shape)
