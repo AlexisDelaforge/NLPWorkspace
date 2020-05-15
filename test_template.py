@@ -29,7 +29,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=60,
+    batch_size=1,
     shuffle=False,
     batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
@@ -97,18 +97,18 @@ model_params = dict(
 
 cross_entropy = nn.CrossEntropyLoss()
 
-name_execution = 'FromGPU4'
+name_execution = 'FromGPU4_Short'
 
 #with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
     #model = pkl.load(f)
 model = models.AttnAutoEncoderRNN(**model_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
 #with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
     #embedder = pkl.load(f)
-embedder = parameters['embedder']
-for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch38.pt"):
+for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch18.pt"):
     print('model import : '+str(f))
     model.load_state_dict(torch.load(f, map_location=device))
 model.eval().to(device)
+embedder = model.embedder
 embedder.to(device)
 #print(len(embedder.index2word))
 embedder.index2word = {v: k for k, v in embedder.word2index.items()}
@@ -121,7 +121,7 @@ sentence_to_test = [
     # ['montpellier','is','a','city','in','france','.'],
     # ['fuck','uno','new','york','diabetes','labrador','.'],
     # ['i','will','never','let','you','down','.'],
-    ['indeed', ',', 'i', 'knew', 'it', 'well', '.']
+    ['indeed', ',', 'i', 'knew', 'it', 'well', '.'],
     # ['dolphins','can','not','hide','from','us','.'],
     # ['is', 'anyone', 'interested', 'in', 'medical', 'deep', 'networking', 'with', 'nlp', '.'],
     # ['i', 'am', 'looking', 'for', 'a', 'data', 'analytics', 'position', '.'],
@@ -133,6 +133,7 @@ sentence_to_test = [
 #print(target.shape)
 #print(input.shape)
 #for sentence in sentence_to_test:
+
 target = training_functions.word_to_idx(sentence_to_test, embedder.word2index).to(device)
 target = target.transpose(1,0)
 print(target.transpose(1,0).shape)

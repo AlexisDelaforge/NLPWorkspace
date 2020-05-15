@@ -14,7 +14,7 @@ import samplers
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cuda:0")
+device = torch.device("cuda:1")
 print(device)
 
 # Create the parameters dict, will be fill after
@@ -27,7 +27,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict(
     dataset=None,  # Will change to take dataset
-    batch_size=40,
+    batch_size=60,
     shuffle=False,
     batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
@@ -64,7 +64,7 @@ print(torch.cuda.memory_allocated(0))  # 1033MiB
 dataloader_params['dataset'] = dataset.AllSentencesDataset(
     # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
     path='../Data/NLP_Dataset/',
-    file_name='10all_setences_en',
+    file_name='20all_setences_en',
     file_type='tsv',
     device=parameters['device'],
     text_column=1)
@@ -166,7 +166,7 @@ if parameters['l1_loss']:
 
 parameters['train_function'] = training_functions.autoencoder_seq2seq_train
 parameters['collate_fn'] = token_collate_fn_same_size
-parameters['execution_name'] = "ShortSentenceTestWithExamplesBis"  # Always
+parameters['execution_name'] = "MediumSentenceTestWithExamplesBis"  # Always
 parameters['epochs'] = 100000  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params

@@ -60,12 +60,12 @@ class GroupedBatchSampler(BatchSampler):
             self.group_ids = self.sampler.shuffle()
         buffer_per_group = defaultdict(list)
         samples_per_group = defaultdict(list)
-        print(type(self.sampler))
+        # print(type(self.sampler))
         num_sents = 0
         for idx in self.sampler:
-            print('grp idx')
-            print(idx)
-            print(self.group_ids[idx]) # Check pour debbug
+            # print('grp idx')
+            # print(idx)
+            # print(self.group_ids[idx]) # Check pour debbug
             group_id = self.group_ids[idx]
             buffer_per_group[group_id].append(idx)
             samples_per_group[group_id].append(idx)

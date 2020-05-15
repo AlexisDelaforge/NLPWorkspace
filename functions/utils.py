@@ -224,7 +224,7 @@ class SubsetSampler(Sampler):
         return self.dataset[self.matching[idx]]
 
     def shuffle(self):
-        print('salut')
+        # print('salut')
         c = list(zip(self.indices, self.size))
         random.shuffle(c)
         self.indices, self.size = zip(*c)
