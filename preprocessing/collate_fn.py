@@ -85,4 +85,10 @@ def token_collate_fn_same_size(batch):
     for sentence in range(len(new_batch)):
         new_batch[sentence] = tuple([new_batch[sentence][0], new_batch[sentence][1]])
     return tuple([torch.stack([s[0] for s in new_batch]).permute(1, 0), torch.stack([s[1] for s in new_batch]).permute(1, 0)])
+
+def token_collate_fn_same_size_target(batch):
+    new_batch = batch
+    for sentence in range(len(new_batch)):
+        new_batch[sentence] = tuple([new_batch[sentence][0], new_batch[sentence][1]])
+    return tuple([torch.stack([s[0] for s in new_batch]).permute(1, 0), torch.stack([s[1] for s in new_batch])])
     # tuple ( N_sentences, N_words, N_embedding / N_sentences, N_words )

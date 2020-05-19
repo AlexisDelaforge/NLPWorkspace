@@ -15,7 +15,6 @@ import glob
 import os
 import samplers
 
-
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = "cuda:0"
@@ -91,9 +90,14 @@ model_params = dict(
     dropout_p=0.1,
     device=parameters['device'],
     teacher_forcing_ratio=0.5,
+    num_layers=2,
     bidirectional=False,
-    max_length=10  # 99 pour le test
+    encode_size=512,
+    max_length=max(dataloader_params['dataset'].size)
 )
+
+print('somme emb param')
+print(parameters['embedder'].weights)
 
 cross_entropy = nn.CrossEntropyLoss()
 
@@ -102,27 +106,44 @@ name_execution = 'FromGPU4_Short'
 #with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
     #model = pkl.load(f)
 model = models.AttnAutoEncoderRNN(**model_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
+
+# for name, param in model.named_parameters():
+#     if param.requires_grad:
+#         print(name, param.data)
+
+print('yoyo')
+
 #with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
     #embedder = pkl.load(f)
-for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch18.pt"):
+for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch_18.pt"):
     print('model import : '+str(f))
-    model.load_state_dict(torch.load(f, map_location=device))
-model.eval().to(device)
+    model.load_state_dict(torch.load(str(f), map_location=device))
+# model = torch.load(str("executions/FromGPU4_Short/models/Best_Model_Epoch_18.pt"))
+model.eval()
 embedder = model.embedder
 embedder.to(device)
+
+
+# for name, param in model.named_parameters():
+#     if param.requires_grad:
+#         print(name, param.data)
+
+print('somme emb param')
+print(sum(sum(embedder.weights)))
+
 #print(len(embedder.index2word))
 embedder.index2word = {v: k for k, v in embedder.word2index.items()}
 # for name, param in model.named_parameters():
 #     if param.requires_grad:
 #         print (name, param.data)
 sentence_to_test = [
-    # ['the','virus','is','still','out','there','.'],
+    ['the','virus','is','still','out','there','.'],
     # ['i','am','a','phd','student','in','neural','network','.'],
-    # ['montpellier','is','a','city','in','france','.'],
-    # ['fuck','uno','new','york','diabetes','labrador','.'],
-    # ['i','will','never','let','you','down','.'],
+    ['montpellier','is','a','city','in','france','.'],
+    ['fuck','uno','new','york','diabetes','labrador','.'],
+    ['i','will','never','let','you','down','.'],
     ['indeed', ',', 'i', 'knew', 'it', 'well', '.'],
-    # ['dolphins','can','not','hide','from','us','.'],
+    ['dolphins','can','not','hide','from','us','.'],
     # ['is', 'anyone', 'interested', 'in', 'medical', 'deep', 'networking', 'with', 'nlp', '.'],
     # ['i', 'am', 'looking', 'for', 'a', 'data', 'analytics', 'position', '.'],
     # ['academic', 'researchers', 'need', 'to', 'worry', 'about', 'deep', 'learning', 'models', '!'],
@@ -135,7 +156,7 @@ sentence_to_test = [
 #for sentence in sentence_to_test:
 
 target = training_functions.word_to_idx(sentence_to_test, embedder.word2index).to(device)
-target = target.transpose(1,0)
+target = target.transpose(1,0).to(device)
 print(target.transpose(1,0).shape)
 output, target = model(tuple([target, target]))
 print('cross_entropy')
