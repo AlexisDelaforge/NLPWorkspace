@@ -27,7 +27,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict( # A REVOIR POUR LES DONNEES TWEETS
     dataset=None,  # Will change to take dataset
-    batch_size=30,
+    batch_size=60,
     shuffle=False,
     batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
@@ -37,7 +37,7 @@ dataloader_params = dict( # A REVOIR POUR LES DONNEES TWEETS
     drop_last=False,
     timeout=0,
     worker_init_fn=None,
-    divide_by=[1, 2, 5, 30],
+    divide_by=[1, 2, 5, 20],
     divide_at=[0, 20, 30, 50]
 )
 
@@ -57,12 +57,12 @@ parameters['embedder'] = embedder.W2VCustomEmbedding(**embedder_params).to(param
 
 dataloader_params['dataset'] = dataset.AirlineTweetDataset(
     # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
-    path='../Data/AirlineTweets/',
-    file_name='Airline-Sentiment-2-w-AA',
+    path='../Data/Yelp/',
+    file_name='20review_binary',
     file_type='csv',
     device=parameters['device'],
-    text_column=14,
-    label_column=5)
+    text_column='text',
+    label_column='target')
 
 # Set True or False for padable
 

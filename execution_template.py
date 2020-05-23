@@ -57,6 +57,7 @@ print('position 0')
 print(torch.cuda.memory_allocated(0))
 
 parameters['embedder'] = embedder.W2VCustomEmbedding(**embedder_params).to(parameters['device'])
+parameters['embedder'].weight.requires_grad = False
 
 print('position 0bis')
 print(torch.cuda.memory_allocated(0))  # 1033MiB
@@ -166,7 +167,7 @@ if parameters['l1_loss']:
 
 parameters['train_function'] = training_functions.autoencoder_seq2seq_train
 parameters['collate_fn'] = token_collate_fn_same_size
-parameters['execution_name'] = "MediumSentenceTestWithExamplesBis"  # Always
+parameters['execution_name'] = "MediumSentenceEmbFixed"  # Always
 parameters['epochs'] = 100000  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params

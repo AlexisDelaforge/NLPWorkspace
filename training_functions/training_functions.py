@@ -443,13 +443,15 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
                     elapsed = time.time() - parameters['log_interval_time']
                     if parameters['scheduler'] is not None:
                         if type(parameters['scheduler']) is dict:
-                            for model, scheduler in parameters[
-                                'scheduler'].items():  # créer dictionnaire plutot que liste
+                            for model, scheduler in parameters['scheduler'].items():
                                 if model + '_scheduler_interval_batch' in parameters and batch_num % \
                                         parameters[model + '_scheduler_interval_batch'] == 0 and batch_num != 0:
                                     # print('step')
                                     # print(parameters['scheduler'].get_last_lr())
+                                    print('line 452')
+                                    print(model + '_lr')
                                     parameters[model + '_lr'] = scheduler.get_last_lr()[0]
+                                    print(parameters[model + '_lr'])
                         else:
                             if 'scheduler_interval_batch' in parameters and batch_num % \
                                     parameters[
@@ -461,13 +463,12 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
                     #     parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
                     functions.add_to_execution_file(parameters, '| epoch {:1d} | btch {:5d} | {:7d}/{:7d}sents(+{:3d}sents) | '
                                                                 'time {:23} | done {:3.1f}% | '
-                                                                'enc.lr {:02.4f} | cla.lf {:02.4f} | ms/batch {:5.2f} | '
-                                                                'enc.loss {:5.2f} | enc.ppl {:8.2f}'
-                                                                ' | cla.loss {:5.2f}'.format(
+                                                                'enc.lr {:02.4f} | cla.lr {:02.4f} | ms/batch {:5.2f} | '
+                                                                'cla.loss {:5.2f} | enc.loss {:5.2f} | enc.ppl {:8.2f}'.format(
                         parameters['epoch'], batch_num, numb_sent, len(train_data_loader.dataset), prev_sent,
                         functions.timeSince(start, numb_sent / len(train_data_loader.dataset)), numb_sent / len(train_data_loader.dataset) * 100,
                         parameters['encoder_lr'], parameters['classifier_lr'], elapsed * 1000 / parameters['log_interval_batch'],  # Ligne à réfléchir
-                        enc_cur_loss, math.exp(enc_cur_loss) if enc_cur_loss < 300 else 0, cls_cur_loss))  # math.exp(cur_loss)
+                        cls_cur_loss, enc_cur_loss, math.exp(enc_cur_loss) if enc_cur_loss < 300 else 0))  # math.exp(cur_loss)
                     #print(target)
                     #print(output.topk(1))
                     random_id = random.randint(0, batch[0].size(1)-1) # secure the choosen 0 / -1
@@ -480,7 +481,8 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
                                                         '| F1: {:02.4f} | Precision: {:02.4f} | Recall: {:02.4f}'.format(
                                                             f1_score.item(), precision.item(), recall.item()))
 
-                    total_loss = 0
+                    enc_total_loss = 0
+                    cls_total_loss = 0
                     parameters['log_interval_time'] = time.time()
                 # functions.add_to_execution_file(parameters, 'Fin de log_interval_batch display  ' + str(
                 #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
@@ -494,16 +496,23 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
                 # parameters['tmps_form_last_step'] = time.time()
             else:
                 a = 1
-        if parameters['scheduler'] is not None and 'scheduler_interval_batch' in parameters:
-            # print('step')
-            # print(parameters['scheduler'].get_last_lr())
-            parameters['scheduler'].step()
+        if parameters['scheduler'] is not None:
+            if type(parameters['scheduler']) is dict:
+                for model, scheduler in parameters['scheduler'].items():  # créer dictionnaire plutot que liste
+                    print(str(model)+' '+str(scheduler.get_last_lr()[0]))
+                    scheduler.step()
+                    parameters[model + '_lr'] = scheduler.get_last_lr()[0]
+                    print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
+            else:
+                print('bad place')
+                parameters['scheduler'].step()
         if 'optimizer' in parameters:
-            # print(parameters['scheduler'].get_last_lr())
-            parameters['optimizer'].step()
+            if type(parameters['optimizer']) is dict:
+                for model, optimizer in parameters['optimizer'].items():
+                    optimizer.step()
         if 'valid_interval_epoch' not in parameters or ('valid_interval_epoch' in parameters and parameters['epoch'] % parameters[
             'valid_interval_epoch'] == 0 and parameters['epoch'] != 0):
-            val_loss = evaluate_seq2seq(parameters, valid_data_loader, save_model=True, end_epoch=True)
+            val_loss = evaluate_encoder_classifier(parameters, valid_data_loader, save_model=True, end_epoch=True)
         # scheduler.step()
         start = time.time()
 
@@ -515,6 +524,15 @@ def evaluate_seq2seq(parameters, valid_data_loader, save_model=False, end_epoch=
     valid_total_loss = 0.
     # ntokens = len(parameters['embedder'].index2word)
     print('debut val')
+
+    enc_target = batch[0]
+    cls_target = batch[1]
+    batch_num += 1
+    # print(batch_num)
+    valid_total_enc_loss = 0
+    valid_total_cls_loss = 0
+
+
     batch_num = 0
     with torch.no_grad():
         for batch in valid_data_loader:  # parameters['batchs']
@@ -545,6 +563,52 @@ def evaluate_seq2seq(parameters, valid_data_loader, save_model=False, end_epoch=
                 valid_total_loss) if valid_total_loss < 300 else 0))
     functions.add_to_execution_file(parameters, '-' * 89)
     if save_model:
+        best_model_and_save(parameters, valid_total_loss)
+    return valid_total_loss
+
+def evaluate_encoder_classifier(parameters, valid_data_loader, save_model=False, end_epoch=False):
+    start_time = time.time()
+    parameters['model'].eval()  # Turn on the evaluation mode
+    enc_valid_total_loss = 0.
+    cls_valid_total_loss = 0.
+    # ntokens = len(parameters['embedder'].index2word)
+    print('debut val')
+    batch_num = 0
+    with torch.no_grad():
+        for batch in valid_data_loader:  # parameters['batchs']
+            batch_num += 1
+            enc_target = batch[0]
+            cls_target = batch[1]
+            # data, targets = get_batch(data_source, i)
+            output, encoder_hidden, class_out = parameters['model'](batch)
+            # valid_loss = parameters['criterion'](output, target)
+            valid_enc_loss = 0
+            valid_cls_loss = 0
+            for di in range(len(output)):
+                # print(str(output[di].shape)+" "+str(enc_target[di].shape))
+                valid_enc_loss += parameters['encoder_criterion'](output[di], enc_target[di])  # voir pourquoi unsqueeze
+            valid_enc_loss += valid_enc_loss / len(output)
+            valid_cls_loss += parameters['classifier_criterion'](class_out, cls_target)
+    enc_valid_total_loss = valid_enc_loss / batch_num  # valid_total_loss / (len(valid_data_loader) - 1)
+    cls_valid_total_loss = valid_cls_loss  # valid_total_loss / (len(valid_data_loader) - 1)
+    functions.add_to_execution_file(parameters, '-' * 89)
+    if end_epoch:
+        functions.add_to_execution_file(parameters, '| end of epoch {:3d} | time: {:5.2f}s | cla.loss {:5.2f} | enc.valid loss {:5.2f} | '
+                                                    'enc.valid ppl {:8.2f}'.format(parameters['epoch'],
+                                                                               (time.time() - start_time),
+                                                                                   cls_valid_total_loss,
+                                                                               enc_valid_total_loss, math.exp(
+                enc_valid_total_loss) if enc_valid_total_loss < 300 else 0))
+    else:
+        functions.add_to_execution_file(parameters, '| inside epoch {:3d} | time: {:5.2f}s | cla.loss {:5.2f} | enc.valid loss {:5.2f} | '
+                                                    'enc.valid ppl {:8.2f}'.format(parameters['epoch'],
+                                                                               (time.time() - start_time),
+                                                                                cls_valid_total_loss,
+                                                                               enc_valid_total_loss, math.exp(
+                enc_valid_total_loss) if enc_valid_total_loss < 300 else 0))
+    functions.add_to_execution_file(parameters, '-' * 89)
+    if save_model:
+        valid_total_loss = .5*enc_valid_total_loss + .5*cls_valid_total_loss
         best_model_and_save(parameters, valid_total_loss)
     return valid_total_loss
 
