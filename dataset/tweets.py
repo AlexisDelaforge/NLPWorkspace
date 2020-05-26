@@ -140,14 +140,14 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
         self.file = path+file_name+"."+file_type
         self.device = device
         if id_column is None:
-            self.data = pd.read_csv(self.file, usecols=[text_column, label_column], sep=',', encoding='latin1') #, nrows=10000) #, nrows=4)  # , nrows=401)
+            self.data = pd.read_csv(self.file, usecols=[text_column, label_column], sep=',') #, nrows=10000) #, nrows=4)  # , nrows=401)
             self.id_column = False
             if text_column < label_column:
                 self.data.columns = ['text', 'target']
             else:
                 self.data.columns = ['target', 'text']
         else:
-            self.data = pd.read_csv(self.file, usecols=[text_column, label_column, id_column], sep=',', encoding='latin1')
+            self.data = pd.read_csv(self.file, usecols=[text_column, label_column, id_column], sep=',')
             self.id_column = True
             self.data.columns = ['text', 'target' 'id']  # condition d'ordre à faire
         self.num_class = len(self.data['target'].unique())
@@ -167,11 +167,11 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
             self.size = pickle.load(open(self.path+file_name+"_batch_len.pkl", "rb"))
             self.data['size'] = self.size # [:10000]
         else:
-            self.size = [len(self.tokenizer(str(self.data['text'][i]).lower().replace("\n",""))) for i in range(len(self.data))]
+            self.size = [len(self.tokenizer(str(self.data['text'][i]).lower().replace("\n", ""))) for i in range(len(self.data))]
             pickle.dump(self.size, open(self.path+file_name+"_batch_len.pkl", "wb"))
             self.data['size'] = self.size
         # self.size = [len(self.tokenizer(str(self.data['text'][i]).lower())) for i in range(len(self.data))]
-        self.data = self.data.sample(frac=1).reset_index(drop=True)
+        # self.data = self.data.sample(frac=1).reset_index(drop=True)
         self.size = self.data['size'] # [:4]
         print(self.data.head())
         print('step 4')
@@ -180,17 +180,22 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
 
         if self.id_column:  # A refaire quand le else est ok
             sample = self.data.loc[self.data['id'] == index]
-            text = [self.vocabulary.word2index[str(i.text).lower().replace("\n","")] for i in list(self.tokenizer(sample['text'].lower()))]
+            # print(sample['text'])
+            text = [self.vocabulary.word2index[str(i.text).lower().replace("\n", " ")] for i in list(self.tokenizer(sample['text'].lower().replace("\n", " ")))]
             target = sample['text']
             id = sample['id']
         else:
             sample = self.data.loc[index]
-            text = [self.vocabulary.word2index[str(i.text).lower().replace("\n","")] if str(
-                i.text).lower() in self.vocabulary.word2index else self.unk for i in
-                    list(self.tokenizer(str(sample['text']).lower()))]
+            # print(sample['text'])
+            # print(sample['text'].lower().replace("\n", " "))
+            text = [self.vocabulary.word2index[str(i.text).lower().replace("\n", " ")] if str(
+                i.text).lower().replace("\n", " ") in self.vocabulary.word2index else self.unk for i in
+                    list(self.tokenizer(str(sample['text']).lower().replace("\n", " ")))]
             target = self.classes[sample['target']]
         # sample['features'] = [self.sos] + list(map(str, list(self.tokenizer(sample['features'])))) + [self.eos]
         # print(list(map(str, self.tokenizer(sample['features']))))
+        # print(torch.tensor(text).to(self.device), torch.tensor(target).to(self.device))
+        # print(len(torch.tensor(text)))
         return torch.tensor(text).to(self.device), torch.tensor(target).to(self.device)
         #self.embedder(torch.tensor(self.pad).to(self.device)).to(self.device), torch.tensor(self.pad).to(self.device)
 

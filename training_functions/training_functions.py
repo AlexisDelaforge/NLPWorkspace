@@ -214,7 +214,7 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
             # print('batch structure')
             # print(batch[0].shape)
             # print(batch[1].shape)
-            output, target = parameters['model'](batch)
+            output, target, encoder_hidden = parameters['model'](batch)
             #functions.add_to_execution_file(parameters, 'La phrase et son output')
             #sentences, values = training_functions.tensor_to_sentences(output, parameters['embedder'].index2word)
             #functions.add_to_execution_file(parameters, str(target[0]))
@@ -525,13 +525,8 @@ def evaluate_seq2seq(parameters, valid_data_loader, save_model=False, end_epoch=
     # ntokens = len(parameters['embedder'].index2word)
     print('debut val')
 
-    enc_target = batch[0]
-    cls_target = batch[1]
-    batch_num += 1
     # print(batch_num)
-    valid_total_enc_loss = 0
-    valid_total_cls_loss = 0
-
+    valid_total_loss = 0
 
     batch_num = 0
     with torch.no_grad():

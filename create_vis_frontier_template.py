@@ -7,10 +7,12 @@ import models
 import embedder
 import training_functions
 from torch.utils import data
+import glob
 import dataset
 from preprocessing import token_collate_fn_same_size_target
 import time
 import samplers
+import frontier
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,7 +29,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict( # A REVOIR POUR LES DONNEES TWEETS
     dataset=None,  # Will change to take dataset
-    batch_size=60,
+    batch_size=50,
     shuffle=False,
     batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
@@ -88,7 +90,7 @@ encoder_params = dict(
     embedder=parameters['embedder'],
     dropout_p=0.1,
     device=parameters['device'],
-    teacher_forcing_ratio=0.5,
+    teacher_forcing_ratio=0,  # Non entrainement
     num_layers=2,
     bidirectional=False,
     encode_size=512,
@@ -110,6 +112,28 @@ parameters['encoder_model'] = models.AttnAutoEncoderRNN(**encoder_params).to(par
 parameters['encoder_model'].load_state_dict(torch.load(str("./executions/FromGPU4_MediumFixed/models/Best_Model_Epoch_20.pt"), map_location=device))
 parameters['classifier_model'] = models.SentimentRNN(**classifier_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
 parameters['model'] = models.EncoderClassifier(parameters['encoder_model'], parameters['classifier_model'], parameters['embedder'])
+
+name_execution = 'FromGPU4_FrontierVisTest'
+
+#with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
+    #model = pkl.load(f)
+parameters['model'] = parameters['model'].to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
+
+# for name, param in model.named_parameters():
+#     if param.requires_grad:
+#         print(name, param.data)
+
+print('yoyo')
+
+#with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
+    #embedder = pkl.load(f)
+for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch_57.pt"):
+    print('model import : '+str(f))
+    parameters['model'].load_state_dict(torch.load(str(f), map_location=device))
+# model = torch.load(str("executions/FromGPU4_Short/models/Best_Model_Epoch_18.pt"))
+parameters['model'].eval()
+embedder = parameters['model'].embedder
+embedder.to(device)
 
 # Should set all parameters of criterion in this dictionary
 
@@ -191,10 +215,11 @@ parameters['l1_loss'] = False
 if parameters['l1_loss']:
     print('l1_loss is True')
 
-parameters['train_function'] = training_functions.encoder_classifier_train
+parameters['create_frontier_function'] = frontier.encoder_classifier_frontier
+parameters['lr'] = 0.05  # Always
 parameters['collate_fn'] = token_collate_fn_same_size_target
-parameters['execution_name'] = "VisFrontierFirstTests"  # Always
-parameters['epochs'] = 100000  # Always
+parameters['execution_name'] = "CreateFrontierData"  # Always
+parameters['epochs'] = 100  # Always
 parameters['criterion_params'] = criterion_params
 parameters['encoder_optimizer_params'] = encoder_optimizer_params
 parameters['encoder_scheduler_params'] = encoder_scheduler_params
@@ -207,7 +232,7 @@ parameters['log_interval_batch'] = 200
 # parameters['log_interval_batch'] = example de ligne que l'on veut retirer // Ligne à commenter
 parameters['batch_size'] = dataloader_params['batch_size']  # Always
 parameters['eval_batch_size'] = 10  # Always
-parameters['split_sets'] = [.95, .025, .025]  # Use to set train, eval and test dataset size, should be egal to 1
+parameters['split_sets'] = [1, 0, 0]  # Use to set train, eval and test dataset size, should be egal to 1
 
 functions.save_execution_file(parameters)
 
@@ -224,7 +249,9 @@ print(torch.cuda.get_device_properties(0).total_memory)  # 1768MiB
 # print(dataloader_params['dataset'].embedder.vocabulary.word2index)
 # print(len(dataloader_params['dataset']))
 
-train_data_loader, valid_data_loader, test_data_loader = functions.train_test_valid_dataloader(dataloader_params, parameters['split_sets'])
+# train_data_loader = functions.SubsetSampler(dataloader_params['dataset'], range(len(dataloader_params['dataset'])))
+train_data_loader = functions.train_dataloader(dataloader_params)
+
 
 functions.add_to_execution_file(parameters, 'Début du chargement des data loader')
 dataloader_time = time.time()
@@ -244,7 +271,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 #print(parameters['model'].device)
 
-parameters['train_function'](parameters, train_data_loader, valid_data_loader)
+parameters['create_frontier_function'](parameters, train_data_loader)
 
 # Define the function to do for each batch
 # The input form is :

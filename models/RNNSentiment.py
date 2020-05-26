@@ -58,7 +58,7 @@ class SentimentRNN(nn.Module):
         # Sigmoid activation layer
         self.sig = nn.Sigmoid()
 
-    def forward(self, source):
+    def forward(self, source, need_embedding=True):
 
         # source tensor à traiter de la même manière que dans Seq2SeqRNN
 
@@ -73,7 +73,10 @@ class SentimentRNN(nn.Module):
         # encoder_outputs = torch.zeros(self.max_length+1, self.encoder.encode_size).to(self.device)
         for ei in range(seq_len):
 
-            embeds = self.embedding(input_tensor[ei]).unsqueeze(1)
+            if need_embedding:
+                embeds = self.embedding(input_tensor[ei]).unsqueeze(1)
+            else :
+                embeds = input_tensor[ei].unsqueeze(1)
             # print(embeds.shape)
             # print(lstm_hidden[0].shape)
             # print(lstm_hidden[1].shape)

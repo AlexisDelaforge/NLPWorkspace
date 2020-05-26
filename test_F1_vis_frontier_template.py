@@ -8,7 +8,7 @@ import embedder
 import training_functions
 from torch.utils import data
 import dataset
-from preprocessing import classic_collate_fn, token_collate_fn, token_collate_fn_same_size
+from preprocessing import token_collate_fn_same_size_target
 import time
 import pickle as pkl
 import glob
@@ -26,19 +26,19 @@ parameters['tmps_form_last_step'] = time.time()
 
 # Should set all parameters of dataloader in this dictionary
 
-dataloader_params = dict(
+dataloader_params = dict( # A REVOIR POUR LES DONNEES TWEETS
     dataset=None,  # Will change to take dataset
-    batch_size=1,
+    batch_size=60,
     shuffle=False,
     batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
     num_workers=0,
-    collate_fn=token_collate_fn_same_size,
+    collate_fn=token_collate_fn_same_size_target,
     pin_memory=False,
     drop_last=False,
     timeout=0,
     worker_init_fn=None,
-    divide_by=[1, 2, 5, 30],
+    divide_by=[1, 2, 5, 20],
     divide_at=[0, 20, 30, 50]
 )
 
@@ -62,13 +62,14 @@ parameters['embedder'] = embedder.W2VCustomEmbedding(**embedder_params).to(param
 print('position 0bis')
 print(torch.cuda.memory_allocated(0))  # 1033MiB
 
-dataloader_params['dataset'] = dataset.AllSentencesDataset(
+dataloader_params['dataset'] = dataset.YelpTweetDataset(
     # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
-    path='../Data/NLP_Dataset/',
-    file_name='20all_setences_en',
-    file_type='tsv',
+    path='../Data/Yelp/',
+    file_name='20review_binary',
+    file_type='csv',
     device=parameters['device'],
-    text_column=1)
+    text_column='text',
+    label_column='target')
 
 dataloader_params['dataset'].set_embedder(parameters)
 parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
@@ -85,7 +86,7 @@ parameters['pad_token'] = parameters['embedder'].word2index['<pad>']
     device=parameters['device']
 )'''
 
-model_params = dict(
+encoder_params = dict(
     embedder=parameters['embedder'],
     dropout_p=0.1,
     device=parameters['device'],
@@ -96,16 +97,32 @@ model_params = dict(
     max_length=max(dataloader_params['dataset'].size)
 )
 
-print('somme emb param')
-print(parameters['embedder'].weights)
+classifier_params = dict(
+    embedder=parameters['embedder'],
+    dropout=0.5,
+    layer_dropout=0.3,
+    device=parameters['device'], # a voir si je le laisse
+    n_layers=2,
+    bidirectional=False,
+    n_hidden=512,
+    n_out=2 #formule pour récupérer le nombre de classe du dataset
+)
+
+parameters['encoder_model'] = models.AttnAutoEncoderRNN(**encoder_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
+parameters['encoder_model'].load_state_dict(torch.load(str("./executions/FromGPU4_MediumFixed/models/Best_Model_Epoch_20.pt"), map_location=device))
+parameters['classifier_model'] = models.SentimentRNN(**classifier_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
+parameters['model'] = models.EncoderClassifier(parameters['encoder_model'], parameters['classifier_model'], parameters['embedder'])
+
+# print('somme emb param')
+# print(parameters['embedder'].weights)
 
 cross_entropy = nn.CrossEntropyLoss()
 
-name_execution = 'FromGPU4_MediumFixed'
+name_execution = 'FromGPU4_FrontierVisTest'
 
 #with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
     #model = pkl.load(f)
-model = models.AttnAutoEncoderRNN(**model_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
+model = parameters['model'].to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
 
 # for name, param in model.named_parameters():
 #     if param.requires_grad:
@@ -115,7 +132,7 @@ print('yoyo')
 
 #with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
     #embedder = pkl.load(f)
-for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch_20.pt"):
+for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch_57.pt"):
     print('model import : '+str(f))
     model.load_state_dict(torch.load(str(f), map_location=device))
 # model = torch.load(str("executions/FromGPU4_Short/models/Best_Model_Epoch_18.pt"))
@@ -137,17 +154,24 @@ embedder.index2word = {v: k for k, v in embedder.word2index.items()}
 #     if param.requires_grad:
 #         print (name, param.data)
 sentence_to_test = [
-    ['the','virus','is','still','out','there','.'],
+    # ['the','virus','is','still','out','there','.'],
+    # ['montpellier','is','a','city','in','france','.'],
+    # ['fuck','uno','new','york','diabetes','labrador','.'],
+    # ['i','will','never','let','you','down','.'],
+    # ['indeed', ',', 'i', 'knew', 'it', 'well', '.'],
+    # ['dolphins','can','not','hide','from','us','.'],
     # ['i','am','a','phd','student','in','neural','network','.'],
-    ['montpellier','is','a','city','in','france','.'],
-    ['fuck','uno','new','york','diabetes','labrador','.'],
-    ['i','will','never','let','you','down','.'],
-    ['indeed', ',', 'i', 'knew', 'it', 'well', '.'],
-    ['dolphins','can','not','hide','from','us','.'],
     # ['is', 'anyone', 'interested', 'in', 'medical', 'deep', 'networking', 'with', 'nlp', '.'],
     # ['i', 'am', 'looking', 'for', 'a', 'data', 'analytics', 'position', '.'],
     # ['academic', 'researchers', 'need', 'to', 'worry', 'about', 'deep', 'learning', 'models', '!'],
     # ['<unk>']
+
+    ['it','is','wonderful','.'],
+    ['i','loved','it','.'],
+    ['best','restaurant','ever','.'],
+    ['do','not','go','.'],
+    ['it','was','disgusting','.'],
+    ['better','eat','shit','.']
 ]
 # target = training_functions.word_to_idx(sentence_to_test, embedder.word2index).to(device)
 # input = embedder(target)
@@ -158,7 +182,7 @@ sentence_to_test = [
 target = training_functions.word_to_idx(sentence_to_test, embedder.word2index).to(device)
 target = target.transpose(1,0).to(device)
 print(target.transpose(1,0).shape)
-output, target, encoder_hidden = model(tuple([target, target]))
+output, encoder_hidden, prediction = model(tuple([target, target]))
 print('cross_entropy')
 print(output.shape)
 print(target.shape)
@@ -167,11 +191,21 @@ for di in range(len(output)):
     # print(str(output[di].shape)+" "+str(target[di].shape))
     loss += cross_entropy(output[di], target[di])  # voir pourquoi unsqueeze
 loss = loss/len(output)
+F1_loss = functions.F1_Loss_Sentences(len(parameters['embedder'].word2index), device)
+F1_l = F1_loss(output.clone(), target.clone())
+print('F1_loss')
+print(F1_l[0])
+print(F1_l[1])
+print(F1_l[2])
+print('loss')
 print(loss)
-#print(target.shape)
+print(target.shape)
 print(output.shape)
 #print(target.shape)
 sentences, values = training_functions.tensor_to_sentences(output, embedder.index2word)
 print(sentence_to_test)
 print(sentences)
+print('target')
+print()
+print(prediction)
 print(values)

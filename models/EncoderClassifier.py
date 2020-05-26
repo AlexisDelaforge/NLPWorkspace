@@ -14,13 +14,13 @@ class EncoderClassifier(nn.Module):
         self.classifier = classifier
         self.embedder = embedder  # La déclaré a l'extérieur avec grad_false au préalable
         self.classifier.embedding.weight.requires_grad = False
-        self.encoder.embedding.weight.requires_grad = False
+        self.encoder.embedder.weight.requires_grad = False
 
-    def forward(self, source):
+    def forward(self, source, need_embedding=True):
 
         # print(source)
-        output_tensor, target_tensor, encoder_hidden = self.encoder(source)
-        class_out, class_hiddens = self.classifier(source)
+        output_tensor, target_tensor, encoder_hidden = self.encoder(source, need_embedding)
+        class_out, class_hiddens = self.classifier(source, need_embedding)
 
 
         # print('output_tensor')

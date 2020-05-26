@@ -28,10 +28,12 @@ class EncoderRNN(nn.Module):
         else:
             self.num_layers_X_directions = 1 * self.num_layers
 
-    def forward(self, input, hidden):
+    def forward(self, input, hidden, need_embedding=True):
         # print(input)
-        embedded = self.embedding(input.long())  # .view(1, 1, -1) # Embbed
-        output = embedded # sequence_size (always 1) X batch_size X embedding_size
+        if need_embedding:
+            output = self.embedding(input.long())  # .view(1, 1, -1) # Embbed
+        else:
+            output = input
 
         # output shape :
         # print('Encoder zone')
@@ -172,23 +174,23 @@ class AttnAutoEncoderRNN(nn.Module):
         self.max_length = max_length  # longueur maximum de la prediction
         self.device = device
         print(self.device)
-        self.embedding = embedder # embedder
+        self.embedder = embedder # embedder
         self.num_layers = num_layers # num layers in GRU cells
         self.bidirectional = bidirectional # always false
         self.dropout_p = dropout_p # dropout prob
         self.encode_size = encode_size # encode size / hidden GRU cells /
-        self.encoder = EncoderRNN(self.embedding, num_layers=self.num_layers, bidirectional=self.bidirectional, encode_size=self.encode_size, device=self.device)
-        self.decoder = AttnDecoderRNN(self.embedding, self.max_length, dropout_p=self.dropout_p, num_layers=self.num_layers, bidirectional=self.bidirectional, encode_size=self.encode_size, device=self.device)
-        self.sos_token = self.embedding.get_index('<sos>') # start of sentence
+        self.encoder = EncoderRNN(self.embedder, num_layers=self.num_layers, bidirectional=self.bidirectional, encode_size=self.encode_size, device=self.device)
+        self.decoder = AttnDecoderRNN(self.embedder, self.max_length, dropout_p=self.dropout_p, num_layers=self.num_layers, bidirectional=self.bidirectional, encode_size=self.encode_size, device=self.device)
+        self.sos_token = self.embedder.get_index('<sos>') # start of sentence
         self.sos_token = torch.tensor(self.sos_token).to(self.device)
-        self.sos_tensor = self.embedding(self.sos_token).to(self.device)
+        self.sos_tensor = self.embedder(self.sos_token).to(self.device)
         # print('youpi')
-        self.eos_token = self.embedding.get_index('<eos>') # end of sentence
+        self.eos_token = self.embedder.get_index('<eos>') # end of sentence
         self.eos_token = torch.tensor(self.eos_token).to(self.device)
-        self.eos_tensor = self.embedding(self.eos_token).to(self.device)
+        self.eos_tensor = self.embedder(self.eos_token).to(self.device)
         self.teacher_forcing_ratio = teacher_forcing_ratio
 
-    def forward(self, source):
+    def forward(self, source, need_embedding=True):
 
 
 
@@ -217,7 +219,7 @@ class AttnAutoEncoderRNN(nn.Module):
             # print('shape encoder hidden')
             # print(input_tensor[ei].shape) # Batch X Hidden size
             encoder_output, encoder_hidden = self.encoder(
-                input_tensor[ei].unsqueeze(0).to(self.device), encoder_hidden)  # Voir pourquoi .unsqueeze(0)
+                input_tensor[ei].unsqueeze(0).to(self.device), encoder_hidden, need_embedding)  # Voir pourquoi .unsqueeze(0)
             # print(encoder_outputs.shape)
             # print(encoder_output.shape)
             encoder_outputs[ei] = encoder_output[0, 0]
@@ -263,7 +265,8 @@ class AttnAutoEncoderRNN(nn.Module):
                 # print('target_tensor')
                 # print(target_tensor.shape)
                 # print(target_tensor[di].unsqueeze(0).shape)
-
+                print(decoder_input.type())
+                print(target_tensor[di].unsqueeze(0).type())
                 decoder_input = torch.cat([decoder_input, target_tensor[di].unsqueeze(0)], dim=0)  # Teacher forcing
                 # print('decoder_input shape')
                 # print(decoder_input.shape)

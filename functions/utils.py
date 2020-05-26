@@ -178,23 +178,44 @@ class F1_Loss_Sentences(nn.Module):
         device = self.device
         # assert y_pred.ndim == 2
         # assert y_true.ndim == 1
-        y_true = F.one_hot(y_true, self.num_classes).permute(0, 2, 1).to(torch.torch.float16)
-        # print(y_pred.shape)
-        topk, indices = torch.topk(y_pred, 1)
-        y_pred = torch.zeros(y_pred.shape).to(device).scatter(1, indices, topk) / y_pred
 
-        # y_pred = F.softmax(y_pred, dim=1)
         # print(y_pred.shape)
-        tp = (y_true * y_pred).sum(dim=0).to(torch.torch.float16)
-        tn = ((1 - y_true) * (1 - y_pred)).sum(dim=0).to(torch.torch.float16)
-        fp = ((1 - y_true) * y_pred).sum(dim=0).to(torch.torch.float16)
-        fn = (y_true * (1 - y_pred)).sum(dim=0).to(torch.torch.float16)
+        # print(y_true.shape)
+
+        y_true = F.one_hot(y_true, self.num_classes).to(device) # .to(torch.float16)
+        # print(y_true.shape)
+        topk, indices = torch.topk(y_pred.to(device), 1)
+        y_pred = torch.zeros(y_pred.shape).to(device).scatter(2, indices, topk) / y_pred
+
+        # y_pred = F.softmax(y_pred, dim=2)
+        # print(y_true.device)
+        # print(y_pred.device)
+        # print(torch.mul(y_true, y_pred))
+        tp = (y_true * y_pred).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
+        # print('tp')
+        # print(tp.shape)
+        # print(tp)
+        tn = ((1 - y_true) * (1 - y_pred)).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
+        # print('tn')
+        # print(tn.shape)
+        # print(tn)
+        fp = ((1 - y_true) * y_pred).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
+        # print('fp')
+        # print(fp.shape)
+        # print(fp)
+        fn = (y_true * (1 - y_pred)).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
+        # print('fn')
+        # print(fn.shape)
+        # print(fn)
 
         precision = tp / (tp + fp + self.epsilon)
+        # print(precision)
         recall = tp / (tp + fn + self.epsilon)
+        # print(recall)
 
         f1 = 2 * (precision * recall) / (precision + recall + self.epsilon)
         f1 = f1.clamp(min=self.epsilon, max=1 - self.epsilon)
+        # print((1 - f1.mean()), precision.mean(), recall.mean())
         return (1 - f1.mean()), precision.mean(), recall.mean()
 
 
@@ -302,6 +323,36 @@ def train_test_valid_dataloader(dataloader_params, split_list):
         print('no batch size to write')
 
     return train_data_loader, valid_data_loader, test_data_loader
+
+def train_dataloader(dataloader_params):
+
+    # print(split_list)
+
+    train_set = SubsetSampler(dataloader_params['dataset'], range(len(dataloader_params['dataset'])))
+
+    if dataloader_params['batch_sampler'] is not None and dataloader_params['batch_size'] is not 1:
+
+        train_data_loader = data.DataLoader(**dict_less(dict_change(dataloader_params, {
+            'dataset': train_set,
+            'batch_sampler': dataloader_params['batch_sampler'](
+                train_set,
+                train_set.size, # economie de place ? [0: split_list[0]]
+                int(dataloader_params['batch_size']),
+                True,
+                dataloader_params['divide_by'],
+                dataloader_params['divide_at']
+            )
+
+        }), ['batch_size', 'shuffle', 'sampler', 'drop_last', 'divide_by', 'divide_at']))
+
+        del dataloader_params['shuffle']
+        del dataloader_params['sampler']
+        del dataloader_params['drop_last']
+        del dataloader_params['batch_size']
+    else:
+        print('no batch size to write')
+
+    return train_data_loader
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
