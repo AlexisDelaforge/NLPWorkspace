@@ -64,7 +64,7 @@ class SentimentRNN(nn.Module):
 
         batch_size = source[0].size(1)  # Batch size
         input_tensor = source[0]  # .squeeze(0)
-        target_tensor = source[1]  # .squeeze(0)
+        # target_tensor = source[1]  # .squeeze(0)
         seq_len = input_tensor.size(0) # sentences length
         # target_length = target_tensor.size(0) # sentences length
         lstm_hidden, gru_hidden = self.init_hidden(batch_size)
@@ -105,11 +105,13 @@ class SentimentRNN(nn.Module):
             sig_out = self.sig(out)
             # print('value sig_out')
             # print(sig_out)
+            out = out.view(batch_size, -1)
             sig_out = sig_out.view(batch_size, -1)
             # sig_out = sig_out[:, -1]  # get only last labels
             # print(sig_out)
 
-        return sig_out, (lstm_hidden, gru_hidden)
+        # return out, (lstm_hidden, gru_hidden)
+        return out, sig_out, (lstm_hidden, gru_hidden)
 
     def init_hidden(self, batch_size, bidirectional=False):
         weight = next(self.parameters()).data

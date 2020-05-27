@@ -149,7 +149,7 @@ class AttnDecoderRNN(nn.Module):
         # output # sequence_size (always 1) X batch_size X encode_size
         # hidden # num_layers_*_directions X batch_size X encode_size
 
-        output = F.log_softmax(self.out(output[0]), dim=1) # batch_size X vocab_size
+        output = F.log_softmax(self.out(output[0]), dim=1)  # batch_size X vocab_size
 
         # print(output.topk(1)[1])
         # output = self.out(output[0])
@@ -190,21 +190,15 @@ class AttnAutoEncoderRNN(nn.Module):
         self.eos_tensor = self.embedder(self.eos_token).to(self.device)
         self.teacher_forcing_ratio = teacher_forcing_ratio
 
-    def forward(self, source, need_embedding=True):
-
-
+    def encode(self, input_tensor, batch_size, need_embedding):
 
         # print(source)
         # print(source[1].shape)
-        batch_size = source[0].size(1)  # Batch size
         # print('len source')
         # print(batch_size)
         # print('batch_size')
         # print(batch_size)
-        input_tensor = source[0]  # .squeeze(0)
-        target_tensor = source[0]  # phrase d'entrée cible phrase de sortie .squeeze(0)
         input_length = input_tensor.size(0) # sentences length
-        target_length = target_tensor.size(0) # sentences length
         encoder_hidden = self.encoder.init_hidden(batch_size)
 
         # simple declaration, self.max_length+1 gérer plus longue phrases + EOS
@@ -234,6 +228,10 @@ class AttnAutoEncoderRNN(nn.Module):
         # print(torch.tensor(self.eos_token.repeat(0,batch_size)))
         encoder_outputs[ei + 1] = encoder_output[0, 0]
 
+        return encoder_hidden, encoder_outputs
+
+    def decode(self, encoder_hidden, encoder_outputs, batch_size, target_tensor, use_teacher_forcing=None):
+        target_length = target_tensor.size(0)
         # decoder_input = torch.tensor([[self.sos_token]]).to(self.device)
         decoder_input = torch.stack([self.sos_token.to(torch.int64)] * batch_size, dim=0).unsqueeze(0).to(self.device)
         # print('first target_tensor')
@@ -241,11 +239,14 @@ class AttnAutoEncoderRNN(nn.Module):
         # print(encoder_hidden.shape)
         decoder_hidden = encoder_hidden
 
-        use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio else False
+        if use_teacher_forcing is not None:
+            use_teacher_forcing = True if random.random() < self.teacher_forcing_ratio else False
         # print(use_teacher_forcing)
         # print('a changer au dessus')
         decoder_output = None  # Simple declaration
         decoder_outputs = []
+        # print(encoder_outputs.shape)
+        # encoder_outputs = torch.ones_like(encoder_outputs)
         if use_teacher_forcing:
             # Teacher forcing: Feed the target as the next input
             for di in range(target_length):
@@ -265,8 +266,8 @@ class AttnAutoEncoderRNN(nn.Module):
                 # print('target_tensor')
                 # print(target_tensor.shape)
                 # print(target_tensor[di].unsqueeze(0).shape)
-                print(decoder_input.type())
-                print(target_tensor[di].unsqueeze(0).type())
+                # print(decoder_input.type())
+                # print(target_tensor[di].unsqueeze(0).type())
                 decoder_input = torch.cat([decoder_input, target_tensor[di].unsqueeze(0)], dim=0)  # Teacher forcing
                 # print('decoder_input shape')
                 # print(decoder_input.shape)
@@ -303,8 +304,22 @@ class AttnAutoEncoderRNN(nn.Module):
                         breakable[i] = 1
                     if sum(breakable) == batch_size:
                         break
-            #print('final shape')
-            #print(torch.stack(torch.unbind(torch.stack(decoder_outputs, dim=0), dim=0)[1:], dim=0).shape)
-            #print('target_tensor shape')
-            #print(target_tensor.shape)
-            return torch.stack(torch.unbind(torch.stack(decoder_outputs, dim=0), dim=0)[1:],dim=0), target_tensor, encoder_hidden
+            return torch.stack(torch.unbind(torch.stack(decoder_outputs, dim=0), dim=0)[1:],
+                                   dim=0), target_tensor, encoder_hidden
+
+    def forward(self, source, need_embedding=True):
+
+        batch_size = source[0].size(1)  # Batch size
+        input_tensor = source[0]  # .squeeze(0)
+        target_tensor = source[0]  # phrase d'entrée cible phrase de sortie .squeeze(0)
+
+        encoder_hidden, encoder_outputs = self.encode(input_tensor, batch_size, need_embedding)
+        print('batch size')
+        print(batch_size)
+        print('encoder output')
+        print(encoder_outputs.shape)
+        print('encoder hidden')
+        print(encoder_hidden.shape)
+        output, target, encoder_hidden = self.decode(encoder_hidden, encoder_outputs, batch_size, target_tensor)
+
+        return output, target, encoder_hidden

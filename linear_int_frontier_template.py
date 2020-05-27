@@ -109,7 +109,7 @@ classifier_params = dict(
 )
 
 parameters['encoder_model'] = models.AttnAutoEncoderRNN(**encoder_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
-parameters['encoder_model'].load_state_dict(torch.load(str("./executions/FromGPU4_MediumFixed/models/Best_Model_Epoch_20.pt"), map_location=device))
+# parameters['encoder_model'].load_state_dict(torch.load(str("./executions/FromGPU4_MediumFixed/models/Best_Model_Epoch_20.pt"), map_location=device))
 parameters['classifier_model'] = models.SentimentRNN(**classifier_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
 parameters['model'] = models.EncoderClassifier(parameters['encoder_model'], parameters['classifier_model'], parameters['embedder'])
 
@@ -118,12 +118,11 @@ name_execution = 'FromGPU4_FrontierVisTest'
 #with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
     #model = pkl.load(f)
 parameters['model'] = parameters['model'].to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
-
+parameters['encoder_model'] = parameters['model'].encoder
+parameters['classifier_model'] = parameters['model'].classifier
 # for name, param in model.named_parameters():
 #     if param.requires_grad:
 #         print(name, param.data)
-
-print('yoyo')
 
 #with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
     #embedder = pkl.load(f)

@@ -20,7 +20,7 @@ class EncoderClassifier(nn.Module):
 
         # print(source)
         output_tensor, target_tensor, encoder_hidden = self.encoder(source, need_embedding)
-        class_out, class_hiddens = self.classifier(source, need_embedding)
+        value_out, class_out, class_hiddens = self.classifier(source, need_embedding)
 
 
         # print('output_tensor')
@@ -42,4 +42,4 @@ class EncoderClassifier(nn.Module):
         # X = torch.cat((x1, x2), dim=0)
         # X = self.emb(X)
         # x1, x2 = X[:B, ...], X[B:, ...]
-        return output_tensor, encoder_hidden, class_out
+        return output_tensor, encoder_hidden, value_out, class_out

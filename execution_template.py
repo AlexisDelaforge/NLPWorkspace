@@ -14,7 +14,7 @@ import samplers
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cuda:1")
+device = torch.device("cuda:0")
 print(device)
 
 # Create the parameters dict, will be fill after

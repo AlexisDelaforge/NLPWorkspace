@@ -5,7 +5,7 @@ from torch.nn.modules.module import Module
 from torch.optim.optimizer import Optimizer, required
 from sklearn.metrics import mean_absolute_error
 import time
-
+import training_functions
 
 def derive_data(model, batch):
     model.parameters.requires_grad = False  # Parametres du model fixe
@@ -32,13 +32,14 @@ class ClassesDistance(_Loss):
         super(ClassesDistance, self).__init__()
         self.distance_function = distance_function
 
-    def forward(self, output):  # Gère seulement le cas de deux classes
+    def forward(self, output, absolute):  # Gère seulement le cas de deux classes
         # target_tensor = torch.zeros(output.size(0))
         # target_tensor[target] = 1
         # print('gueuledelouput')
         # print(output)
         distance = output.transpose(1, 0)[0] - output.transpose(1, 0)[1]
-        distance = distance.abs()
+        if absolute:
+            distance = distance.abs()
         # if target == torch.max(output)[1]:  # si la classe est bien prédite
         #     return distance, True  # a voir ou est le moins
         #     # - distance car on veut aller dans le sens contraire de le bonne prédiction dès que la prédiction est bonne
@@ -138,16 +139,20 @@ def encoder_classifier_frontier(parameters, train_data_loader, max_iter=1500000)
         input = parameters['embedder'](batch[0]).float()
         input.requires_grad = True  # Parametres des données qui vont changer
         print(input.requires_grad)
-        optimizer = torch.optim.Adagrad([input], parameters['lr'])
+        print(input.shape)
+        print(input)
+        optimizer = torch.optim.SGD([input], parameters['lr'])
         diff = torch.tensor([float('inf')]*batch[0].size(0))
         epsilon = 0.1
         while sum(diff > epsilon).item() != 0 and iter < max_iter:
             iter += 1
             optimizer.zero_grad()
             # print(input.shape)
-            output, encoder_hidden, class_out = parameters['model'](tuple([input, batch[1]]), False)
-            diff = criterion(class_out)
+            output, encoder_hidden, value_out, class_out = parameters['model'](tuple([input, batch[1]]), False)
+            diff = criterion(value_out)
+            diff_soft = criterion(class_out)
             # print(diff.grad_fn)
+            print(diff_soft.sum())
             print(diff.sum())
             diff.sum().backward()
             optimizer.step()
@@ -333,5 +338,46 @@ def encoder_classifier_frontier(parameters, train_data_loader, max_iter=1500000)
     #     val_loss = evaluate_encoder_classifier(parameters, valid_data_loader, save_model=True, end_epoch=True)
     # # scheduler.step()
     # start = time.time()
+
+def linear_int_frontier(parameters, train_data_loader, epsilon = 0.1, max_iter=100):
+    search_interval = [0, 1]
+    criterion = ClassesDistance()
+    diff = float('inf')
+    batch_num = 0
+    for batch in train_data_loader:  # parameters['batchs']
+        batch_num += 1
+        iters = 0
+        while diff.abs().item() > epsilon and iters < max_iter:
+            iters += 1
+            input = batch[0]
+            target_tensor = batch[1][0]
+
+            encoder_hidden_0, encoder_outputs_0 = parameters['encoder_model'].encoder(input[0], 1, True)
+            encoder_hidden_1, encoder_outputs_1 = parameters['encoder_model'].encoder(input[1], 1, True)
+
+            input = (sum(search_interval)/2)*encoder_hidden_0+(1-(sum(search_interval)/2))*encoder_hidden_1
+            encoder_outputs = torch.ones_like(encoder_outputs_0)
+
+            output, target, encoder_hidden = parameters['encoder_model'].decode(input, encoder_outputs, 1, target_tensor, False)
+            sentence = training_functions.tensor_to_sentences_idx(output)
+
+            value_out, class_out, class_hiddens = parameters['classifier_model'](tuple([sentence, None])) # None ou target c'est pareil car pas utilisé évidément
+
+            diff = criterion(class_out, False)
+
+            print("Différence des probabilités pour le batch "+batch_num+": "+str(diff.abs()))
+
+            # signe_diff = (diff.copy()/diff.copy().abs()).item() # Signe de la différence
+
+            if diff > 0:  # A voir le sens selon comment les batchs sont rangés
+                search_interval = [max(search_interval), sum(search_interval)/2]
+            elif diff < 0:
+                search_interval = [min(search_interval), sum(search_interval)/2]
+            else:
+                break
+
+        # Enregistrer l'input comme point sur la frontière
+        # Voir procédure d'enregistrement et le stockage
+
 
 #    showPlot(plot_losses)
