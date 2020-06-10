@@ -29,7 +29,7 @@ class EncoderRNN(nn.Module):
             self.num_layers_X_directions = 1 * self.num_layers
 
     def forward(self, input, hidden, need_embedding=True):
-        # print(input)
+        # print(input.shape)
         if need_embedding:
             output = self.embedding(input.long())  # .view(1, 1, -1) # Embbed
         else:
@@ -201,6 +201,9 @@ class AttnAutoEncoderRNN(nn.Module):
         input_length = input_tensor.size(0) # sentences length
         encoder_hidden = self.encoder.init_hidden(batch_size)
 
+        # print('encoder_hidden.shape')
+        # print(encoder_hidden.shape)
+
         # simple declaration, self.max_length+1 gérer plus longue phrases + EOS
         encoder_outputs = torch.zeros(self.max_length+1, self.encoder.encode_size).to(self.device)
         # print(encoder_outputs.shape)
@@ -314,12 +317,12 @@ class AttnAutoEncoderRNN(nn.Module):
         target_tensor = source[0]  # phrase d'entrée cible phrase de sortie .squeeze(0)
 
         encoder_hidden, encoder_outputs = self.encode(input_tensor, batch_size, need_embedding)
-        print('batch size')
-        print(batch_size)
-        print('encoder output')
-        print(encoder_outputs.shape)
-        print('encoder hidden')
-        print(encoder_hidden.shape)
+        # print('batch size')
+        # print(batch_size)
+        # print('encoder output')
+        # print(encoder_outputs.shape)
+        # print('encoder hidden')
+        # print(encoder_hidden.shape)
         output, target, encoder_hidden = self.decode(encoder_hidden, encoder_outputs, batch_size, target_tensor)
 
         return output, target, encoder_hidden

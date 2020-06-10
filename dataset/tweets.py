@@ -133,7 +133,7 @@ class AirlineTweetDataset(Sampler):  # A retravailler
 # My Code
 
 class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
-    def __init__(self, path, file_name, file_type,  device, text_column=1, label_column=2, id_column=None, name=None, sos='<sos>', eos='<eos>',
+    def __init__(self, path, file_name, file_type, device, return_id=False, text_column=1, label_column=2, id_column=None, name=None, sos='<sos>', eos='<eos>',
                  pad='<pad>', unk='<unk>', tok_type='spacy'):
         self.name = name
         self.path = path
@@ -152,9 +152,10 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
             self.data.columns = ['text', 'target' 'id']  # condition d'ordre à faire
         self.num_class = len(self.data['target'].unique())
         self.classes = dict()
+        self.return_id = return_id
         for i in range(self.num_class):
             self.classes[self.data['target'].unique()[i]] = i
-        print('step 2')
+        # print('step 2')
         self.sos = sos
         self.eos = eos
         self.pad = pad
@@ -162,7 +163,7 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
         self.tokenizer = tk(tok_type)
         self.vocabulary = None
         self.embedder = None
-        print('step 3')
+        # print('step 3')
         if pathos.exists(self.path+file_name+"_batch_len.pkl"):
             self.size = pickle.load(open(self.path+file_name+"_batch_len.pkl", "rb"))
             self.data['size'] = self.size # [:10000]
@@ -173,8 +174,13 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
         # self.size = [len(self.tokenizer(str(self.data['text'][i]).lower())) for i in range(len(self.data))]
         # self.data = self.data.sample(frac=1).reset_index(drop=True)
         self.size = self.data['size'] # [:4]
-        print(self.data.head())
-        print('step 4')
+        self.target = self.data['target']
+        # print(self.data.head())
+        # print('step 4')
+        print('sizes')
+        print(len(self.size))
+        print(len(self.target))
+
 
     def __getitem__(self, index):
 
@@ -196,26 +202,30 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
         # print(list(map(str, self.tokenizer(sample['features']))))
         # print(torch.tensor(text).to(self.device), torch.tensor(target).to(self.device))
         # print(len(torch.tensor(text)))
-        return torch.tensor(text).to(self.device), torch.tensor(target).to(self.device)
+        if self.return_id:
+            return torch.tensor(text).to(self.device), torch.tensor(target).to(self.device), index
+        else:
+            return torch.tensor(text).to(self.device), torch.tensor(target).to(self.device)
         #self.embedder(torch.tensor(self.pad).to(self.device)).to(self.device), torch.tensor(self.pad).to(self.device)
 
     def __len__(self):
         return int(len(self.data))
 
     def __iter__(self):
-        print('\tcalling AllSentencesDataset:__iter__')
+        # print('\tcalling AllSentencesDataset:__iter__')
         return iter(range(len(self.data)))
 
     def set_vocabulary(self, vocabulary):
         self.vocabulary = vocabulary
 
     def shuffle(self):
-        self.data = self.data.sample(frac=1).reset_index(drop=True)
+        self.data = self.data.sample(frac=1).reset_index(drop=False)
         self.size = self.data['size']  # [:4]
+        self.target = self.data['target']
 
     def set_embedder(self, parameters, padable=True):  # Voir pour le freeze des parameters of nn.Embedding
-        print('position setembed 1')
-        print(torch.cuda.memory_allocated(0))
+        # print('position setembed 1')
+        # print(torch.cuda.memory_allocated(0))
         self.embedder = parameters['embedder']
         self.vocabulary = parameters['embedder'].vocabulary
         self.vocabulary.add_word('<sos>')
@@ -224,8 +234,8 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
         self.eos = self.vocabulary.word2index['<eos>']
         self.vocabulary.add_word('<unk>')
         self.unk = self.vocabulary.word2index['<unk>']
-        print('position setembed 2')
-        print(torch.cuda.memory_allocated(0))
+        # print('position setembed 2')
+        # print(torch.cuda.memory_allocated(0))
         if padable:
             self.vocabulary.add_word('<pad>')
             self.pad = self.vocabulary.word2index['<pad>']
@@ -237,18 +247,18 @@ class YelpTweetDataset(Sampler):  # A retravailler REPLACE \n !!! /!\
                 torch.cat([parameters['embedder'].weights, torch.mean(parameters['embedder'].weights, dim=0).unsqueeze(dim=0)], dim=0))
             parameters['embedder'].weights = torch.cat(
                 [parameters['embedder'].weights, torch.mean(parameters['embedder'].weights, dim=0).unsqueeze(dim=0)], dim=0)
-        print('position setembed 3')
-        print(torch.cuda.memory_allocated(0))
+        # print('position setembed 3')
+        # print(torch.cuda.memory_allocated(0))
         self.vocabulary.index2word = {v: k for k, v in self.vocabulary.word2index.items()}
         # print(self.embedder.weight.shape)
-        print('position setembed 4')
-        print(torch.cuda.memory_allocated(0))
+        # print('position setembed 4')
+        # print(torch.cuda.memory_allocated(0))
         parameters['embedder'].word2index = dict(self.vocabulary.word2index)
-        print('position setembed 5')
-        print(torch.cuda.memory_allocated(0))
+        # print('position setembed 5')
+        # print(torch.cuda.memory_allocated(0))
         parameters['embedder'].index2word = dict(self.vocabulary.index2word)
-        print('position setembed 6')
-        print(torch.cuda.memory_allocated(0))
+        # print('position setembed 6')
+        # print(torch.cuda.memory_allocated(0))
         self.embedder = parameters['embedder']
 
     def name(self, name=None):

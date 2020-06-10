@@ -174,7 +174,7 @@ class F1_Loss_Sentences(nn.Module):
         self.epsilon = epsilon
         self.device = device
 
-    def forward(self, y_pred, y_true):
+    def forward(self, y_pred, y_true, text=False):
         device = self.device
         # assert y_pred.ndim == 2
         # assert y_true.ndim == 1
@@ -183,30 +183,57 @@ class F1_Loss_Sentences(nn.Module):
         # print(y_true.shape)
 
         y_true = F.one_hot(y_true, self.num_classes).to(device) # .to(torch.float16)
-        # print(y_true.shape)
-        topk, indices = torch.topk(y_pred.to(device), 1)
-        y_pred = torch.zeros(y_pred.shape).to(device).scatter(2, indices, topk) / y_pred
 
-        # y_pred = F.softmax(y_pred, dim=2)
-        # print(y_true.device)
-        # print(y_pred.device)
-        # print(torch.mul(y_true, y_pred))
-        tp = (y_true * y_pred).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
-        # print('tp')
-        # print(tp.shape)
-        # print(tp)
-        tn = ((1 - y_true) * (1 - y_pred)).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
-        # print('tn')
-        # print(tn.shape)
-        # print(tn)
-        fp = ((1 - y_true) * y_pred).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
-        # print('fp')
-        # print(fp.shape)
-        # print(fp)
-        fn = (y_true * (1 - y_pred)).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
-        # print('fn')
-        # print(fn.shape)
-        # print(fn)
+        if text:
+            # print(y_true.shape)
+            topk, indices = torch.topk(y_pred.to(device), 1)
+            y_pred = torch.zeros(y_pred.shape).to(device).scatter(2, indices, topk) / y_pred
+
+            # y_pred = F.softmax(y_pred, dim=2)
+            # print(y_true.device)
+            # print(y_pred.device)
+            # print(torch.mul(y_true, y_pred))
+            tp = (y_true * y_pred).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
+            # print('tp')
+            # print(tp.shape)
+            # print(tp)
+            tn = ((1 - y_true) * (1 - y_pred)).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
+            # print('tn')
+            # print(tn.shape)
+            # print(tn)
+            fp = ((1 - y_true) * y_pred).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
+            # print('fp')
+            # print(fp.shape)
+            # print(fp)
+            fn = (y_true * (1 - y_pred)).sum(dim=0).sum(dim=1).to(torch.float16)  # Good
+            # print('fn')
+            # print(fn.shape)
+            # print(fn)
+
+
+        else:
+
+            # y_pred = F.softmax(y_pred, dim=2)
+            # print(y_true.device)
+            # print(y_pred.device)
+            # print(torch.mul(y_true, y_pred))
+            tp = (y_true * y_pred).sum(dim=0).to(torch.float16)  # Good
+            # print('tp')
+            # print(tp.shape)
+            # print(tp)
+            tn = ((1 - y_true) * (1 - y_pred)).sum(dim=0).to(torch.float16)  # Good
+            # print('tn')
+            # print(tn.shape)
+            # print(tn)
+            fp = ((1 - y_true) * y_pred).sum(dim=0).to(torch.float16)  # Good
+            # print('fp')
+            # print(fp.shape)
+            # print(fp)
+            fn = (y_true * (1 - y_pred)).sum(dim=0).to(torch.float16)  # Good
+            # print('fn')
+            # print(fn.shape)
+            # print(fn)
+
 
         precision = tp / (tp + fp + self.epsilon)
         # print(precision)
@@ -216,6 +243,7 @@ class F1_Loss_Sentences(nn.Module):
         f1 = 2 * (precision * recall) / (precision + recall + self.epsilon)
         f1 = f1.clamp(min=self.epsilon, max=1 - self.epsilon)
         # print((1 - f1.mean()), precision.mean(), recall.mean())
+
         return (1 - f1.mean()), precision.mean(), recall.mean()
 
 
@@ -225,10 +253,18 @@ class F1_Loss_Sentences(nn.Module):
 # https://github.com/ruotianluo/ImageCaptioning.pytorch/issues/49
 
 class SubsetSampler(Sampler):
-    def __init__(self, dataset, indices):
+    def __init__(self, dataset, indices, part=True, target_need=True):
         self.dataset = dataset
         self.indices = list(indices)
-        self.size = self.dataset.data['size'][indices[0]:indices[-1]]
+        self.target_need = target_need
+        if part:
+            self.size = self.dataset.data['size'][indices[0]:indices[-1]]
+            if self.target_need:
+                self.target = self.dataset.data['target'][indices[0]:indices[-1]]
+        else:
+            self.size = self.dataset.data['size']
+            if self.target_need:
+                self.target = self.dataset.data['target']
         self.from_beg = self.indices[0]
         self.matching = dict()
         for i in range(len(self.indices)):
@@ -246,26 +282,33 @@ class SubsetSampler(Sampler):
 
     def shuffle(self):
         # print('salut')
-        c = list(zip(self.indices, self.size))
-        random.shuffle(c)
-        self.indices, self.size = zip(*c)
-        for i in range(len(self.indices)):
-            self.matching[i] = self.indices[i]
-
-        return self.size  # Retourne le grp_idx pour le GrpBatchSampler
+        if self.target_need:
+            c = list(zip(self.indices, self.size, self.target))
+            random.shuffle(c)
+            self.indices, self.size, self.target = zip(*c)
+            for i in range(len(self.indices)):
+                self.matching[i] = self.indices[i]
+            return self.size, self.target  # Retourne le grp_idx pour le GrpBatchSampler
+        else:
+            c = list(zip(self.indices, self.size))
+            random.shuffle(c)
+            self.indices, self.size = zip(*c)
+            for i in range(len(self.indices)):
+                self.matching[i] = self.indices[i]
+            return self.size, None # Retourne le grp_idx pour le GrpBatchSampler
 
 
 # My code
 
-def train_test_valid_dataloader(dataloader_params, split_list):
+def train_test_valid_dataloader(dataloader_params, split_list, target_need=False):
 
     split_values(len(dataloader_params['dataset']), split_list)
 
     # print(split_list)
 
-    train_set = SubsetSampler(dataloader_params['dataset'], range(0, split_list[0]))
-    valid_set = SubsetSampler(dataloader_params['dataset'], range(split_list[0], split_list[1]))
-    test_set = SubsetSampler(dataloader_params['dataset'], range(split_list[1], split_list[2]))
+    train_set = SubsetSampler(dataloader_params['dataset'], list(range(0, split_list[0])), target_need=target_need)
+    valid_set = SubsetSampler(dataloader_params['dataset'], list(range(split_list[0], split_list[1])), target_need=target_need)
+    test_set = SubsetSampler(dataloader_params['dataset'], list(range(split_list[1], split_list[2])), target_need=target_need)
 
     if dataloader_params['batch_sampler'] is not None and dataloader_params['batch_size'] is not 1:
 
@@ -328,7 +371,7 @@ def train_dataloader(dataloader_params):
 
     # print(split_list)
 
-    train_set = SubsetSampler(dataloader_params['dataset'], range(len(dataloader_params['dataset'])))
+    train_set = SubsetSampler(dataloader_params['dataset'], range(len(dataloader_params['dataset'])), part=False)
 
     if dataloader_params['batch_sampler'] is not None and dataloader_params['batch_size'] is not 1:
 
@@ -341,6 +384,71 @@ def train_dataloader(dataloader_params):
                 True,
                 dataloader_params['divide_by'],
                 dataloader_params['divide_at']
+            )
+
+        }), ['batch_size', 'shuffle', 'sampler', 'drop_last', 'divide_by', 'divide_at']))
+
+        del dataloader_params['shuffle']
+        del dataloader_params['sampler']
+        del dataloader_params['drop_last']
+        del dataloader_params['batch_size']
+    else:
+        print('no batch size to write')
+
+    return train_data_loader
+
+def train_inter_lin_dataloader(dataloader_params):
+
+    print('look that')
+    print(len(dataloader_params['dataset']))
+    train_set = SubsetSampler(dataloader_params['dataset'], range(len(dataloader_params['dataset'])), part=False)
+
+    print('sizes 2')
+    print(len(train_set.size))
+    print(len(train_set.target))
+
+    print('sizes 3')
+    print(len(train_set.size))
+    print(len(train_set.target))
+
+    if dataloader_params['batch_sampler'] is not None and dataloader_params['batch_size'] is not 1:
+
+        train_data_loader = data.DataLoader(**dict_less(dict_change(dataloader_params, {
+            'dataset': train_set,
+            'batch_sampler': dataloader_params['batch_sampler'](
+                train_set,
+                train_set.target, # economie de place ? [0: split_list[0]]
+                int(dataloader_params['batch_size']),
+                True,
+                dataloader_params['divide_by'],
+                dataloader_params['divide_at']
+            )
+
+        }), ['batch_size', 'shuffle', 'sampler', 'drop_last', 'divide_by', 'divide_at']))
+
+        del dataloader_params['shuffle']
+        del dataloader_params['sampler']
+        del dataloader_params['drop_last']
+        del dataloader_params['batch_size']
+    else:
+        print('no batch size to write')
+
+    return train_data_loader
+
+def train_inter_lin_same_size_dataloader(dataloader_params):
+
+    train_set = SubsetSampler(dataloader_params['dataset'], range(len(dataloader_params['dataset'])), part=False)
+
+    if dataloader_params['batch_sampler'] is not None and dataloader_params['batch_size'] is not 1:
+
+        train_data_loader = data.DataLoader(**dict_less(dict_change(dataloader_params, {
+            'dataset': train_set,
+            'batch_sampler': dataloader_params['batch_sampler'](
+                train_set,
+                train_set.size,
+                train_set.target,  # economie de place ? [0: split_list[0]]
+                int(dataloader_params['batch_size']),
+                True
             )
 
         }), ['batch_size', 'shuffle', 'sampler', 'drop_last', 'divide_by', 'divide_at']))

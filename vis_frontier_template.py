@@ -37,7 +37,7 @@ dataloader_params = dict( # A REVOIR POUR LES DONNEES TWEETS
     drop_last=False,
     timeout=0,
     worker_init_fn=None,
-    divide_by=[1, 2, 5, 20],
+    divide_by=[1, 2, 5, 30],
     divide_at=[0, 20, 30, 50]
 )
 
@@ -89,7 +89,7 @@ encoder_params = dict(
     dropout_p=0.1,
     device=parameters['device'],
     teacher_forcing_ratio=0.5,
-    num_layers=2,
+    num_layers=1,
     bidirectional=False,
     encode_size=512,
     max_length=max(dataloader_params['dataset'].size)

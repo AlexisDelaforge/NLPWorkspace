@@ -104,7 +104,7 @@ model_params = dict(
     dropout_p=0.1,
     device=parameters['device'],
     teacher_forcing_ratio=0.5,
-    num_layers=2,
+    num_layers=1,
     bidirectional=False,
     encode_size=512,
     max_length=max(dataloader_params['dataset'].size)
@@ -167,7 +167,7 @@ if parameters['l1_loss']:
 
 parameters['train_function'] = training_functions.autoencoder_seq2seq_train
 parameters['collate_fn'] = token_collate_fn_same_size
-parameters['execution_name'] = "MediumSentenceEmbFixed"  # Always
+parameters['execution_name'] = "MediumSentenceEmbFixedNumLayers1"  # Always
 parameters['epochs'] = 100000  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params

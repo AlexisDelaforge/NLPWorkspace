@@ -7,16 +7,14 @@ import models
 import embedder
 import training_functions
 from torch.utils import data
-import glob
 import dataset
 from preprocessing import token_collate_fn_same_size_target
 import time
 import samplers
-import frontier
 
 # Set the device parameters
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("cuda:0")
+device = torch.device("cuda:2")
 print('Device in use : '+str(device))
 
 # Create the parameters dict, will be fill after
@@ -29,7 +27,7 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict( # A REVOIR POUR LES DONNEES TWEETS
     dataset=None,  # Will change to take dataset
-    batch_size=2,
+    batch_size=80,
     shuffle=False,
     batch_sampler=samplers.GroupedBatchSampler,
     sampler=None,
@@ -39,7 +37,7 @@ dataloader_params = dict( # A REVOIR POUR LES DONNEES TWEETS
     drop_last=False,
     timeout=0,
     worker_init_fn=None,
-    divide_by=[1, 1, 5, 20],
+    divide_by=[1, 2, 5, 20],
     divide_at=[0, 20, 30, 50]
 )
 
@@ -90,50 +88,20 @@ encoder_params = dict(
     embedder=parameters['embedder'],
     dropout_p=0.1,
     device=parameters['device'],
-    teacher_forcing_ratio=0,  # Non entrainement
+    teacher_forcing_ratio=0.5,
     num_layers=2,
     bidirectional=False,
     encode_size=512,
     max_length=max(dataloader_params['dataset'].size)
 )
 
-classifier_params = dict(
-    embedder=parameters['embedder'],
-    dropout=0.5,
-    layer_dropout=0.3,
-    device=parameters['device'], # a voir si je le laisse
-    n_layers=2,
-    bidirectional=False,
-    n_hidden=512,
-    n_out=2 #formule pour récupérer le nombre de classe du dataset
+model_params = dict(
+    num_class=dataloader_params['dataset'].num_class
 )
 
 parameters['encoder_model'] = models.AttnAutoEncoderRNN(**encoder_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
 parameters['encoder_model'].load_state_dict(torch.load(str("./executions/FromGPU4_MediumFixed/models/Best_Model_Epoch_20.pt"), map_location=device))
-parameters['classifier_model'] = models.SentimentRNN(**classifier_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
-parameters['model'] = models.EncoderClassifier(parameters['encoder_model'], parameters['classifier_model'], parameters['embedder'])
-
-name_execution = 'FromGPU4_FrontierVisTest'
-
-#with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
-    #model = pkl.load(f)
-parameters['model'] = parameters['model'].to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
-
-# for name, param in model.named_parameters():
-#     if param.requires_grad:
-#         print(name, param.data)
-
-print('yoyo')
-
-#with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
-    #embedder = pkl.load(f)
-for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch_57.pt"):
-    print('model import : '+str(f))
-    parameters['model'].load_state_dict(torch.load(str(f), map_location=device))
-# model = torch.load(str("executions/FromGPU4_Short/models/Best_Model_Epoch_18.pt"))
-parameters['model'].eval()
-embedder = parameters['model'].embedder
-embedder.to(device)
+parameters['model'] = models.EncoderClassifierDecoder(parameters['encoder_model'], parameters['embedder'], model_params['num_class'], device)
 
 # Should set all parameters of criterion in this dictionary
 
@@ -153,21 +121,13 @@ print(torch.cuda.get_device_properties(0).total_memory)
 
 # Should set all parameters of optimizer in this dictionary
 
-parameters['encoder_lr'] = 1  # Always
-parameters['classifier_lr'] = 1  # Always
+parameters['lr'] = 1  # Always
+# parameters['encoder_lr'] = .5  # Always
+# parameters['classifier_lr'] = .5  # Always
 
-encoder_optimizer_params = dict(
-    params=parameters['encoder_model'].parameters(),
-    lr=parameters['encoder_lr'],  # will change to take parameters['lr']
-    momentum=0,
-    dampening=0,
-    weight_decay=0,
-    nesterov=False
-)
-
-classifier_optimizer_params = dict(
-    params=parameters['classifier_model'].parameters(),
-    lr=parameters['classifier_lr'],  # will change to take parameters['lr']
+optimizer_params = dict(
+    params=parameters['model'].parameters(),
+    lr=parameters['lr'],  # will change to take parameters['lr']
     momentum=0,
     dampening=0,
     weight_decay=0,
@@ -178,61 +138,41 @@ classifier_optimizer_params = dict(
 #     if param.requires_grad:
 #         print (name, param.data)
 
-parameters['encoder_optimizer'] = torch.optim.SGD(**encoder_optimizer_params)
-parameters['classifier_optimizer'] = torch.optim.SGD(**classifier_optimizer_params)
-parameters['optimizer'] = dict(
-    encoder=parameters['encoder_optimizer'],
-    classifier=parameters['classifier_optimizer']
-)
+parameters['optimizer'] = torch.optim.SGD(**optimizer_params)
 
 # Should set all parameters of scheduler in this dictionary
 
-encoder_scheduler_params = dict(
-    optimizer=parameters['encoder_optimizer'],  # will change to take parameters['optimizer']
+scheduler_params = dict(
+    optimizer=parameters['optimizer'],  # will change to take parameters['optimizer']
     step_size=1,  # Each epoch do decay for 1, two epoch for 2 etc...
     gamma=0.9,  # Multiple lr by gamma value at each update
     last_epoch=-1
 )
 
-classifier_scheduler_params = dict(
-    optimizer=parameters['classifier_optimizer'],  # will change to take parameters['optimizer']
-    step_size=1,  # Each epoch do decay for 1, two epoch for 2 etc...
-    gamma=0.9,  # Multiple lr by gamma value at each update
-    last_epoch=-1
-)
 
-parameters['encoder_scheduler'] = torch.optim.lr_scheduler.StepLR(**encoder_scheduler_params)
-parameters['encoder_scheduler_interval_batch'] = 1000000
-parameters['classifier_scheduler'] = torch.optim.lr_scheduler.StepLR(**classifier_scheduler_params)
-parameters['classifier_scheduler_interval_batch'] = 1000000
-parameters['scheduler'] = dict(
-    encoder=parameters['encoder_scheduler'],
-    classifier=parameters['classifier_scheduler']
-)
+parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
+parameters['scheduler_interval_batch'] = 1000000
 parameters['valid_interval_batch'] = 1000000
 parameters['valid_interval_epoch'] = 1
-parameters['l1_loss'] = False
+parameters['l1_loss'] = True
 if parameters['l1_loss']:
     print('l1_loss is True')
 
-parameters['create_frontier_function'] = frontier.encoder_classifier_frontier
-parameters['lr'] = 0.0005  # Always
+parameters['train_function'] = training_functions.encoder_classifier_train
 parameters['collate_fn'] = token_collate_fn_same_size_target
-parameters['execution_name'] = "CreateFrontierData"  # Always
-parameters['epochs'] = 100  # Always
+parameters['execution_name'] = "EncoderUnique3"  # Always
+parameters['epochs'] = 100000  # Always
 parameters['criterion_params'] = criterion_params
-parameters['encoder_optimizer_params'] = encoder_optimizer_params
-parameters['encoder_scheduler_params'] = encoder_scheduler_params
-parameters['classifier_optimizer_params'] = classifier_optimizer_params
-parameters['classifier_scheduler_params'] = classifier_scheduler_params
+parameters['optimizer_params'] = optimizer_params
+parameters['scheduler_params'] = scheduler_params
 parameters['embedder_params'] = embedder_params
 parameters['encoder_params'] = encoder_params
-parameters['classifier_params'] = classifier_params
+parameters['model_params'] = model_params
 parameters['log_interval_batch'] = 200
 # parameters['log_interval_batch'] = example de ligne que l'on veut retirer // Ligne à commenter
 parameters['batch_size'] = dataloader_params['batch_size']  # Always
 parameters['eval_batch_size'] = 10  # Always
-parameters['split_sets'] = [1, 0, 0]  # Use to set train, eval and test dataset size, should be egal to 1
+parameters['split_sets'] = [.95, .025, .025]  # Use to set train, eval and test dataset size, should be egal to 1
 
 functions.save_execution_file(parameters)
 
@@ -249,9 +189,7 @@ print(torch.cuda.get_device_properties(0).total_memory)  # 1768MiB
 # print(dataloader_params['dataset'].embedder.vocabulary.word2index)
 # print(len(dataloader_params['dataset']))
 
-# train_data_loader = functions.SubsetSampler(dataloader_params['dataset'], range(len(dataloader_params['dataset'])))
-train_data_loader = functions.train_dataloader(dataloader_params)
-
+train_data_loader, valid_data_loader, test_data_loader = functions.train_test_valid_dataloader(dataloader_params, parameters['split_sets'])
 
 functions.add_to_execution_file(parameters, 'Début du chargement des data loader')
 dataloader_time = time.time()
@@ -265,13 +203,13 @@ print(torch.cuda.get_device_properties(0).total_memory)
 functions.add_to_execution_file(parameters, 'Fin de creation des dataloader en  ' + str(round((time.time()-parameters['tmps_form_last_step']), 2))+' secondes')
 
 functions.add_to_execution_file(parameters, 'Nombre de paramètres de l\'encoder : '+str(functions.count_parameters(parameters['encoder_model']))+' params')
-functions.add_to_execution_file(parameters, 'Nombre de paramètres du classifier : '+str(functions.count_parameters(parameters['classifier_model']))+' params')
+functions.add_to_execution_file(parameters, 'Nombre de paramètres du model : '+str(functions.count_parameters(parameters['model']))+' params')
 
 parameters['tmps_form_last_step'] = time.time()
 
 #print(parameters['model'].device)
 
-parameters['create_frontier_function'](parameters, train_data_loader)
+parameters['train_function'](parameters, train_data_loader, valid_data_loader)
 
 # Define the function to do for each batch
 # The input form is :

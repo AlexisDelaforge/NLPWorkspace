@@ -93,3 +93,8 @@ def token_collate_fn_same_size_target(batch):
     # print(new_batch)
     return tuple([torch.stack([s[0] for s in new_batch]).permute(1, 0), torch.stack([s[1] for s in new_batch])])
     # tuple ( N_sentences, N_words, N_embedding / N_sentences, N_words )
+
+def linear_interpolation_collate_fn(batch):
+    # print(batch)
+    return batch
+    # tuple ( N_sentences, N_words, N_embedding / N_sentences, N_words )

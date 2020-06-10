@@ -6,6 +6,7 @@ import os
 import glob
 import training_functions
 import random
+from functions import F1_Loss_Sentences
 
 # Code from https://pytorch.org/tutorials/beginner/transformer_tutorial.html
 # Change : Yes
@@ -317,7 +318,7 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0'''
 
-def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
+def encoder_classifier_train(parameters, train_data_loader, valid_data_loader, alpha=0.85):
     start = time.time()
     parameters['best_val_loss'] = float("inf")
     parameters['epoch'] = 0
@@ -330,6 +331,8 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
 
     train_data_loader
 
+    if parameters['l1_loss']:
+        f1_loss = F1_Loss_Sentences(parameters['model_params']['num_class'], parameters['device'])
     # encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     # decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
     # training_pairs = [tensorsFromPair(random.choice(pairs))
@@ -372,7 +375,7 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
             # print('batch structure')
             # print(batch[0].shape)
             # print(batch[1].shape)
-            output, encoder_hidden, class_out = parameters['model'](batch)
+            output, encoder_hidden, value_out, class_out = parameters['model'](batch)
             #functions.add_to_execution_file(parameters, 'La phrase et son output')
             #sentences, values = training_functions.tensor_to_sentences(output, parameters['embedder'].index2word)
             #functions.add_to_execution_file(parameters, str(target[0]))
@@ -389,8 +392,8 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
             cls_loss += parameters['classifier_criterion'](class_out, cls_target)
             #print('/ len(target) before backward()') # /len(target) before backward()
 
-            enc_loss.backward()
-            cls_loss.backward()
+            loss = (1-alpha)*enc_loss + alpha*cls_loss
+            loss.backward()
             if 'grad_norm' in parameters and parameters['grad_norm']:
                 parameters.grad_norm(parameters['model'].parameters())
                 # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
@@ -412,6 +415,7 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
                         # print('step')
                         # print(parameters['scheduler'].get_last_lr())
                         parameters['scheduler'].step()
+                        parameters['lr'] = parameters['scheduler'].get_last_lr()
             if 'optimizer' in parameters:
                 if type(parameters['optimizer']) is dict:
                     for model, optimizer in parameters['optimizer'].items():
@@ -461,14 +465,32 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
                                 parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
                     # if 'scheduler' in parameters and parameters['scheduler'] is not None:
                     #     parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
-                    functions.add_to_execution_file(parameters, '| epoch {:1d} | btch {:5d} | {:7d}/{:7d}sents(+{:3d}sents) | '
-                                                                'time {:23} | done {:3.1f}% | '
-                                                                'enc.lr {:02.4f} | cla.lr {:02.4f} | ms/batch {:5.2f} | '
-                                                                'cla.loss {:5.2f} | enc.loss {:5.2f} | enc.ppl {:8.2f}'.format(
-                        parameters['epoch'], batch_num, numb_sent, len(train_data_loader.dataset), prev_sent,
-                        functions.timeSince(start, numb_sent / len(train_data_loader.dataset)), numb_sent / len(train_data_loader.dataset) * 100,
-                        parameters['encoder_lr'], parameters['classifier_lr'], elapsed * 1000 / parameters['log_interval_batch'],  # Ligne à réfléchir
-                        cls_cur_loss, enc_cur_loss, math.exp(enc_cur_loss) if enc_cur_loss < 300 else 0))  # math.exp(cur_loss)
+                    if parameters['l1_loss']:
+                        functions.add_to_execution_file(parameters,
+                                                        '| epoch {:1d} | btch {:5d} | {:7d}/{:7d}sents(+{:3d}sents) | '
+                                                        'time {:23} | done {:3.1f}% | '
+                                                        'enc.lr {:02.4f} | cla.lr {:02.4f} | ms/batch {:5.2f} | '
+                                                        'cla.loss {:5.2f} | cla.pre {:1.2f} | enc.loss {:5.2f} | enc.ppl {:8.2f}'.format(
+                                                            parameters['epoch'], batch_num, numb_sent,
+                                                            len(train_data_loader.dataset), prev_sent,
+                                                            functions.timeSince(start, numb_sent / len(
+                                                                train_data_loader.dataset)),
+                                                            numb_sent / len(train_data_loader.dataset) * 100,
+                                                            parameters['lr'], parameters['lr'],
+                                                            # parameters['encoder_lr'], parameters['classifier_lr'],
+                                                            elapsed * 1000 / parameters['log_interval_batch'],
+                                                            # Ligne à réfléchir
+                                                            cls_cur_loss, f1_loss(class_out, cls_target)[1], enc_cur_loss, math.exp(
+                                                                enc_cur_loss) if enc_cur_loss < 300 else 0))  # math.exp(cur_loss)
+                    else:
+                        functions.add_to_execution_file(parameters, '| epoch {:1d} | btch {:5d} | {:7d}/{:7d}sents(+{:3d}sents) | '
+                                                                    'time {:23} | done {:3.1f}% | '
+                                                                    'enc.lr {:02.4f} | cla.lr {:02.4f} | ms/batch {:5.2f} | '
+                                                                    'cla.loss {:5.2f} | enc.loss {:5.2f} | enc.ppl {:8.2f}'.format(
+                            parameters['epoch'], batch_num, numb_sent, len(train_data_loader.dataset), prev_sent,
+                            functions.timeSince(start, numb_sent / len(train_data_loader.dataset)), numb_sent / len(train_data_loader.dataset) * 100,
+                            parameters['encoder_lr'], parameters['classifier_lr'], elapsed * 1000 / parameters['log_interval_batch'],  # Ligne à réfléchir
+                            cls_cur_loss, enc_cur_loss, math.exp(enc_cur_loss) if enc_cur_loss < 300 else 0))  # math.exp(cur_loss)
                     #print(target)
                     #print(output.topk(1))
                     random_id = random.randint(0, batch[0].size(1)-1) # secure the choosen 0 / -1
@@ -476,10 +498,6 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
                     functions.add_to_execution_file(parameters, str(training_functions.tensor_to_sentences(output, parameters['embedder'].index2word)[0][random_id]))
 
                     prev_sent = numb_sent
-                    if parameters['l1_loss']:
-                        functions.add_to_execution_file(parameters,
-                                                        '| F1: {:02.4f} | Precision: {:02.4f} | Recall: {:02.4f}'.format(
-                                                            f1_score.item(), precision.item(), recall.item()))
 
                     enc_total_loss = 0
                     cls_total_loss = 0
@@ -504,12 +522,16 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader):
                     parameters[model + '_lr'] = scheduler.get_last_lr()[0]
                     print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
             else:
-                print('bad place')
+                print('passé là')
                 parameters['scheduler'].step()
+                parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
         if 'optimizer' in parameters:
             if type(parameters['optimizer']) is dict:
                 for model, optimizer in parameters['optimizer'].items():
                     optimizer.step()
+            else:
+                print('passé là')
+                parameters['optimizer'].step()
         if 'valid_interval_epoch' not in parameters or ('valid_interval_epoch' in parameters and parameters['epoch'] % parameters[
             'valid_interval_epoch'] == 0 and parameters['epoch'] != 0):
             val_loss = evaluate_encoder_classifier(parameters, valid_data_loader, save_model=True, end_epoch=True)
@@ -533,7 +555,7 @@ def evaluate_seq2seq(parameters, valid_data_loader, save_model=False, end_epoch=
         for batch in valid_data_loader:  # parameters['batchs']
             batch_num += 1
             # data, targets = get_batch(data_source, i)
-            output, target = parameters['model'](batch)  # écrire function one_train
+            output, target, encoder_hidden = parameters['model'](batch)  # écrire function one_train
             # valid_loss = parameters['criterion'](output, target)
             loss = 0
             for di in range(len(output)):
@@ -575,7 +597,7 @@ def evaluate_encoder_classifier(parameters, valid_data_loader, save_model=False,
             enc_target = batch[0]
             cls_target = batch[1]
             # data, targets = get_batch(data_source, i)
-            output, encoder_hidden, class_out = parameters['model'](batch)
+            output, encoder_hidden, value_out, class_out = parameters['model'](batch)
             # valid_loss = parameters['criterion'](output, target)
             valid_enc_loss = 0
             valid_cls_loss = 0

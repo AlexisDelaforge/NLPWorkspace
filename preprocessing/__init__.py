@@ -1,1 +1,1 @@
-from .collate_fn import classic_collate_fn, token_collate_fn, token_collate_fn_same_size, token_collate_fn_same_size_target
+from .collate_fn import classic_collate_fn, token_collate_fn, token_collate_fn_same_size, token_collate_fn_same_size_target, linear_interpolation_collate_fn

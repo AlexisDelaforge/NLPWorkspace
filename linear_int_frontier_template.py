@@ -9,7 +9,7 @@ import training_functions
 from torch.utils import data
 import glob
 import dataset
-from preprocessing import token_collate_fn_same_size_target
+from preprocessing import linear_interpolation_collate_fn
 import time
 import samplers
 import frontier
@@ -29,12 +29,12 @@ parameters['tmps_form_last_step'] = time.time()
 
 dataloader_params = dict( # A REVOIR POUR LES DONNEES TWEETS
     dataset=None,  # Will change to take dataset
-    batch_size=50,
+    batch_size=2,
     shuffle=False,
-    batch_sampler=samplers.GroupedBatchSampler,
+    batch_sampler=samplers.OppositeSameSizeTwoSentenceBatchSampler,
     sampler=None,
     num_workers=0,
-    collate_fn=token_collate_fn_same_size_target,
+    collate_fn=linear_interpolation_collate_fn,
     pin_memory=False,
     drop_last=False,
     timeout=0,
@@ -63,6 +63,7 @@ dataloader_params['dataset'] = dataset.YelpTweetDataset(
     file_name='20review_binary',
     file_type='csv',
     device=parameters['device'],
+    return_id=True,
     text_column='text',
     label_column='target')
 
@@ -97,23 +98,28 @@ encoder_params = dict(
     max_length=max(dataloader_params['dataset'].size)
 )
 
-classifier_params = dict(
-    embedder=parameters['embedder'],
-    dropout=0.5,
-    layer_dropout=0.3,
-    device=parameters['device'], # a voir si je le laisse
-    n_layers=2,
-    bidirectional=False,
-    n_hidden=512,
-    n_out=2 #formule pour récupérer le nombre de classe du dataset
+# classifier_params = dict(
+#     embedder=parameters['embedder'],
+#     dropout=0.5,
+#     layer_dropout=0.3,
+#     device=parameters['device'], # a voir si je le laisse
+#     n_layers=2,
+#     bidirectional=False,
+#     n_hidden=512,
+#     n_out=2 #formule pour récupérer le nombre de classe du dataset
+# )
+
+model_params = dict(
+    num_class=dataloader_params['dataset'].num_class
 )
 
 parameters['encoder_model'] = models.AttnAutoEncoderRNN(**encoder_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
 # parameters['encoder_model'].load_state_dict(torch.load(str("./executions/FromGPU4_MediumFixed/models/Best_Model_Epoch_20.pt"), map_location=device))
-parameters['classifier_model'] = models.SentimentRNN(**classifier_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
-parameters['model'] = models.EncoderClassifier(parameters['encoder_model'], parameters['classifier_model'], parameters['embedder'])
+# parameters['classifier_model'] = models.SentimentRNN(**classifier_params).to(parameters['device'])  #models.TransformerModel(**model_params).to(parameters['device'])
+# parameters['model'] = models.EncoderClassifier(parameters['encoder_model'], parameters['classifier_model'], parameters['embedder'])
+parameters['model'] = models.EncoderClassifierDecoder(parameters['encoder_model'], parameters['embedder'], model_params['num_class'], device)
 
-name_execution = 'FromGPU4_FrontierVisTest'
+name_execution = 'FromGPU4_EncoderUnique'
 
 #with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
     #model = pkl.load(f)
@@ -126,7 +132,7 @@ parameters['classifier_model'] = parameters['model'].classifier
 
 #with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
     #embedder = pkl.load(f)
-for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch_57.pt"):
+for f in glob.glob("./executions/" + str(name_execution) + "/models/Model_Epoch_5.pt"):
     print('model import : '+str(f))
     parameters['model'].load_state_dict(torch.load(str(f), map_location=device))
 # model = torch.load(str("executions/FromGPU4_Short/models/Best_Model_Epoch_18.pt"))
@@ -214,9 +220,9 @@ parameters['l1_loss'] = False
 if parameters['l1_loss']:
     print('l1_loss is True')
 
-parameters['create_frontier_function'] = frontier.encoder_classifier_frontier
+parameters['create_frontier_function'] = frontier.linear_int_frontier
 parameters['lr'] = 0.0005  # Always
-parameters['collate_fn'] = token_collate_fn_same_size_target
+parameters['collate_fn'] = linear_interpolation_collate_fn
 parameters['execution_name'] = "CreateFrontierData"  # Always
 parameters['epochs'] = 100  # Always
 parameters['criterion_params'] = criterion_params
@@ -226,7 +232,7 @@ parameters['classifier_optimizer_params'] = classifier_optimizer_params
 parameters['classifier_scheduler_params'] = classifier_scheduler_params
 parameters['embedder_params'] = embedder_params
 parameters['encoder_params'] = encoder_params
-parameters['classifier_params'] = classifier_params
+# parameters['classifier_params'] = classifier_params
 parameters['log_interval_batch'] = 200
 # parameters['log_interval_batch'] = example de ligne que l'on veut retirer // Ligne à commenter
 parameters['batch_size'] = dataloader_params['batch_size']  # Always
@@ -249,7 +255,7 @@ print(torch.cuda.get_device_properties(0).total_memory)  # 1768MiB
 # print(len(dataloader_params['dataset']))
 
 # train_data_loader = functions.SubsetSampler(dataloader_params['dataset'], range(len(dataloader_params['dataset'])))
-train_data_loader = functions.train_dataloader(dataloader_params)
+train_data_loader = functions.train_inter_lin_same_size_dataloader(dataloader_params)
 
 
 functions.add_to_execution_file(parameters, 'Début du chargement des data loader')
