@@ -45,14 +45,17 @@ class EncoderClassifier(nn.Module):
         return output_tensor, encoder_hidden, value_out, class_out
 
 class EncoderClassifierDecoder(nn.Module):
-    def __init__(self, encoder, embedder, num_classes, device):
+    def __init__(self, encoder, embedder, num_classes, device, output='soft'):
+        # num_classes == numclasse OU num_variables à prédire
         super(EncoderClassifierDecoder, self).__init__()
         self.encoder = encoder
         self.embedder = embedder  # La déclaré a l'extérieur avec grad_false au préalable
         self.device = device
         self.classifier = torch.nn.Linear(self.encoder.encode_size*self.encoder.num_layers, num_classes, bias=True).to(self.device)
-        # self.sig_out = nn.Sigmoid().to(self.device)
-        self.sig_out = nn.Softmax(1).to(self.device)
+        if output == 'sig':
+            self.sig_out = nn.Sigmoid().to(self.device)
+        else:
+            self.sig_out = nn.Softmax(1).to(self.device)
         self.encoder.embedder.weight.requires_grad = False
 
     def forward(self, source, need_embedding=True):

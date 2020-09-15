@@ -255,7 +255,11 @@ class F1_Loss_Sentences(nn.Module):
 class SubsetSampler(Sampler):
     def __init__(self, dataset, indices, part=True, target_need=True):
         self.dataset = dataset
-        self.indices = list(indices)
+        if dataset.id is not None:
+            # print('not none')
+            self.indices = dataset.id
+        else:
+            self.indices = list(indices)
         self.target_need = target_need
         if part:
             self.size = self.dataset.data['size'][indices[0]:indices[-1]]

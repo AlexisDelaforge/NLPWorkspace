@@ -62,13 +62,13 @@ parameters['embedder'].weight.requires_grad = False # Fixe or not embeddding
 print('position 0bis')
 print(torch.cuda.memory_allocated(0))  # 1033MiB
 
-dataloader_params['dataset'] = dataset.AllSentencesDataset(
+dataloader_params['dataset'] = dataset.AmazonReview(
     # path='/home/alexis/Project/Data/NLP_Dataset/all_setences_en_processed.tsv',
-    path='../Data/NLP_Dataset/',
-    file_name='40all_setences_en',
-    file_type='tsv',
+    path='../Data/AmazonReview/',
+    file_name='data_processed',
+    file_type='csv',
     device=parameters['device'],
-    text_column=1)
+    text_column=7)
 
 print('position 0ter')
 print(torch.cuda.memory_allocated(0))
@@ -160,8 +160,8 @@ scheduler_params = dict(
 
 train_params = dict(
     begining=False,
-    start_epoch=4,
-    load_model='./executions/LongSentenceEmbFixedLay2/models/Model_Epoch_3.pt'
+    start_epoch=20,
+    load_model='./executions/FromGPU4_MediumFixed/models/Best_Model_Epoch_20.pt'
 )
 
 parameters['scheduler'] = torch.optim.lr_scheduler.StepLR(**scheduler_params)
@@ -174,7 +174,7 @@ if parameters['l1_loss']:
 
 parameters['train_function'] = training_functions.autoencoder_seq2seq_train
 parameters['collate_fn'] = token_collate_fn_same_size
-parameters['execution_name'] = "LongSentenceEmbFixedLay2"  # Always
+parameters['execution_name'] = "15072020ShortAmazon"  # Always
 parameters['epochs'] = 10  # Always
 parameters['criterion_params'] = criterion_params
 parameters['optimizer_params'] = optimizer_params

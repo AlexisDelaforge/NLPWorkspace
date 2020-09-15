@@ -41,6 +41,7 @@ class GroupedBatchSampler(BatchSampler):
             )
         self.sampler = sampler
         self.group_ids = group_ids
+        # print(group_ids)
         self.batch_size = batch_size
         self.shuffle = shuffle
         if divide_batch_size_by is None:

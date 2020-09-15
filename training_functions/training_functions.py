@@ -179,7 +179,33 @@ def autoencoder_seq2seq_train(parameters, train_data_loader, valid_data_loader):
     print_every = 100
     plot_every = 5000
 
-    train_data_loader
+
+    print(parameters['train_params'])
+
+    if parameters['train_params']['start_epoch'] > parameters['epoch']:
+        #print(torch.load(parameters['train_params']['load_model']))
+        parameters['model'].load_state_dict(torch.load(parameters['train_params']['load_model'], map_location=parameters['device']))
+        #print(parameters['model'].state_dict())
+        parameters['model'].eval()
+        print('Model importé')
+        while parameters['train_params']['start_epoch']-1 > parameters['epoch']:
+            if 'optimizer' in parameters:
+                if type(parameters['optimizer']) is dict:
+                    for model, optimizer in parameters['optimizer'].items():
+                        optimizer.step()
+                else:
+                    parameters['optimizer'].step()
+            if parameters['scheduler'] is not None:
+                if type(parameters['scheduler']) is dict:
+                    for model, scheduler in parameters['scheduler'].items():  # créer dictionnaire plutot que liste
+                        print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
+                        scheduler.step()
+                        parameters[model + '_lr'] = scheduler.get_last_lr()[0]
+                        print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
+                else:
+                    parameters['scheduler'].step()
+                    parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
+            parameters['epoch'] += 1
 
     # encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     # decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
@@ -329,7 +355,31 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader, a
     print_every = 100
     plot_every = 5000
 
-    train_data_loader
+    #train_data_loader
+
+    if parameters['train_params']['start_epoch'] > parameters['epoch']:
+        parameters['model'] = parameters['model'].load_state_dict(torch.load(parameters['train_params'].load_model))
+        print('model importé')
+        while parameters['train_params']['start_epoch'] > parameters['epoch']:
+            if parameters['scheduler'] is not None:
+                if type(parameters['scheduler']) is dict:
+                    for model, scheduler in parameters['scheduler'].items():  # créer dictionnaire plutot que liste
+                        print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
+                        scheduler.step()
+                        parameters[model + '_lr'] = scheduler.get_last_lr()[0]
+                        print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
+                else:
+                    print('passé là')
+                    parameters['scheduler'].step()
+                    parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
+            if 'optimizer' in parameters:
+                if type(parameters['optimizer']) is dict:
+                    for model, optimizer in parameters['optimizer'].items():
+                        optimizer.step()
+                else:
+                    print('passé là')
+                    parameters['optimizer'].step()
+            parameters['epoch'] += 1
 
     if parameters['l1_loss']:
         f1_loss = F1_Loss_Sentences(parameters['model_params']['num_class'], parameters['device'])
@@ -387,8 +437,8 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader, a
                 enc_loss += parameters['encoder_criterion'](output[di], enc_target[di])  # voir pourquoi unsqueeze
                 # batch[0][di] is the target
             enc_loss = enc_loss/len(output)
-            # print(class_out.shape)
-            # print(cls_target.shape)
+            print(class_out.shape)
+            print(cls_target.shape)
             cls_loss += parameters['classifier_criterion'](class_out, cls_target)
             #print('/ len(target) before backward()') # /len(target) before backward()
 
@@ -434,6 +484,255 @@ def encoder_classifier_train(parameters, train_data_loader, valid_data_loader, a
             # print(loss)
             enc_total_loss += enc_loss.item()
             cls_total_loss += cls_loss.item()
+            # print(batch_num)
+            if 'log_interval_batch' in parameters and batch_num % parameters[
+                'log_interval_batch'] == 0 and batch_num > 0:
+                # print(batch_num % parameters['log_interval_batch'])
+                # print(batch_num)
+                if batch_num % parameters['log_interval_batch'] == 0 and batch_num > 0:
+                    # batch.num doit exister voir dataloader !!!
+                    prev_sent = numb_sent-prev_sent
+                    enc_cur_loss = enc_total_loss / parameters['log_interval_batch']
+                    cls_cur_loss = cls_total_loss / parameters['log_interval_batch']
+                    elapsed = time.time() - parameters['log_interval_time']
+                    if parameters['scheduler'] is not None:
+                        if type(parameters['scheduler']) is dict:
+                            for model, scheduler in parameters['scheduler'].items():
+                                if model + '_scheduler_interval_batch' in parameters and batch_num % \
+                                        parameters[model + '_scheduler_interval_batch'] == 0 and batch_num != 0:
+                                    # print('step')
+                                    # print(parameters['scheduler'].get_last_lr())
+                                    print('line 452')
+                                    print(model + '_lr')
+                                    parameters[model + '_lr'] = scheduler.get_last_lr()[0]
+                                    print(parameters[model + '_lr'])
+                        else:
+                            if 'scheduler_interval_batch' in parameters and batch_num % \
+                                    parameters[
+                                        'scheduler_interval_batch'] == 0 and batch_num != 0:
+                                # print('step')
+                                # print(parameters['scheduler'].get_last_lr())
+                                parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
+                    # if 'scheduler' in parameters and parameters['scheduler'] is not None:
+                    #     parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
+                    if parameters['l1_loss']:
+                        functions.add_to_execution_file(parameters,
+                                                        '| epoch {:1d} | btch {:5d} | {:7d}/{:7d}sents(+{:3d}sents) | '
+                                                        'time {:23} | done {:3.1f}% | '
+                                                        'enc.lr {:02.4f} | cla.lr {:02.4f} | ms/batch {:5.2f} | '
+                                                        'cla.loss {:5.2f} | cla.pre {:1.2f} | enc.loss {:5.2f} | enc.ppl {:8.2f}'.format(
+                                                            parameters['epoch'], batch_num, numb_sent,
+                                                            len(train_data_loader.dataset), prev_sent,
+                                                            functions.timeSince(start, numb_sent / len(
+                                                                train_data_loader.dataset)),
+                                                            numb_sent / len(train_data_loader.dataset) * 100,
+                                                            parameters['lr'], parameters['lr'],
+                                                            # parameters['encoder_lr'], parameters['classifier_lr'],
+                                                            elapsed * 1000 / parameters['log_interval_batch'],
+                                                            # Ligne à réfléchir
+                                                            cls_cur_loss, f1_loss(class_out, cls_target)[1], enc_cur_loss, math.exp(
+                                                                enc_cur_loss) if enc_cur_loss < 300 else 0))  # math.exp(cur_loss)
+                    else:
+                        functions.add_to_execution_file(parameters, '| epoch {:1d} | btch {:5d} | {:7d}/{:7d}sents(+{:3d}sents) | '
+                                                                    'time {:23} | done {:3.1f}% | '
+                                                                    'enc.lr {:02.4f} | cla.lr {:02.4f} | ms/batch {:5.2f} | '
+                                                                    'cla.loss {:5.2f} | enc.loss {:5.2f} | enc.ppl {:8.2f}'.format(
+                            parameters['epoch'], batch_num, numb_sent, len(train_data_loader.dataset), prev_sent,
+                            functions.timeSince(start, numb_sent / len(train_data_loader.dataset)), numb_sent / len(train_data_loader.dataset) * 100,
+                            parameters['encoder_lr'], parameters['classifier_lr'], elapsed * 1000 / parameters['log_interval_batch'],  # Ligne à réfléchir
+                            cls_cur_loss, enc_cur_loss, math.exp(enc_cur_loss) if enc_cur_loss < 300 else 0))  # math.exp(cur_loss)
+                    #print(target)
+                    #print(output.topk(1))
+                    random_id = random.randint(0, batch[0].size(1)-1) # secure the choosen 0 / -1
+                    functions.add_to_execution_file(parameters, str(training_functions.sentences_idx_to_word(enc_target.transpose(1,0), parameters['embedder'].word2index)[random_id]))
+                    functions.add_to_execution_file(parameters, str(training_functions.tensor_to_sentences(output, parameters['embedder'].index2word)[0][random_id]))
+
+                    prev_sent = numb_sent
+
+                    enc_total_loss = 0
+                    cls_total_loss = 0
+                    parameters['log_interval_time'] = time.time()
+                # functions.add_to_execution_file(parameters, 'Fin de log_interval_batch display  ' + str(
+                #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
+                # parameters['tmps_form_last_step'] = time.time()
+            if 'valid_interval_batch' in parameters and batch_num % parameters[
+                'valid_interval_batch'] == 0 and batch_num != 0:
+                val_loss = evaluate_seq2seq(parameters, valid_data_loader, save_model=True, end_epoch=False)
+                # print(parameters['scheduler'].get_last_lr())
+                # functions.add_to_execution_file(parameters, 'Fin de valid_interval_batch  ' + str(
+                #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
+                # parameters['tmps_form_last_step'] = time.time()
+            else:
+                a = 1
+        if parameters['scheduler'] is not None:
+            if type(parameters['scheduler']) is dict:
+                for model, scheduler in parameters['scheduler'].items():  # créer dictionnaire plutot que liste
+                    print(str(model)+' '+str(scheduler.get_last_lr()[0]))
+                    scheduler.step()
+                    parameters[model + '_lr'] = scheduler.get_last_lr()[0]
+                    print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
+            else:
+                print('passé là')
+                parameters['scheduler'].step()
+                parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
+        if 'optimizer' in parameters:
+            if type(parameters['optimizer']) is dict:
+                for model, optimizer in parameters['optimizer'].items():
+                    optimizer.step()
+            else:
+                print('passé là')
+                parameters['optimizer'].step()
+        if 'valid_interval_epoch' not in parameters or ('valid_interval_epoch' in parameters and parameters['epoch'] % parameters[
+            'valid_interval_epoch'] == 0 and parameters['epoch'] != 0):
+            val_loss = evaluate_encoder_classifier(parameters, valid_data_loader, save_model=True, end_epoch=True)
+        # scheduler.step()
+        start = time.time()
+
+def encoder_classifier_train_amazon(parameters, train_data_loader, valid_data_loader, alpha=0.10, beta=0.45, ceta=0.45):
+    start = time.time()
+    parameters['best_val_loss'] = float("inf")
+    parameters['epoch'] = 0
+    # f1_loss = functions.F1_Loss_Sentences(parameters['model_params']['ntoken'], parameters['device'])
+    plot_losses = []
+    print_loss_total = 0  # Reset every print_every
+    plot_loss_total = 0  # Reset every plot_every
+    print_every = 100
+    plot_every = 5000
+
+    #train_data_loader
+
+    if parameters['train_params']['start_epoch'] > parameters['epoch']:
+        parameters['model'] = parameters['model'].load_state_dict(torch.load(parameters['train_params'].load_model))
+        print('model importé')
+        while parameters['train_params']['start_epoch'] > parameters['epoch']:
+            if parameters['scheduler'] is not None:
+                if type(parameters['scheduler']) is dict:
+                    for model, scheduler in parameters['scheduler'].items():  # créer dictionnaire plutot que liste
+                        print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
+                        scheduler.step()
+                        parameters[model + '_lr'] = scheduler.get_last_lr()[0]
+                        print(str(model) + ' ' + str(scheduler.get_last_lr()[0]))
+                else:
+                    print('passé là')
+                    parameters['scheduler'].step()
+                    parameters['lr'] = parameters['scheduler'].get_last_lr()[0]
+            if 'optimizer' in parameters:
+                if type(parameters['optimizer']) is dict:
+                    for model, optimizer in parameters['optimizer'].items():
+                        optimizer.step()
+                else:
+                    print('passé là')
+                    parameters['optimizer'].step()
+            parameters['epoch'] += 1
+
+    if parameters['l1_loss']:
+        f1_loss = F1_Loss_Sentences(parameters['model_params']['num_class'], parameters['device'])
+    # encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
+    # decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
+    # training_pairs = [tensorsFromPair(random.choice(pairs))
+    #                  for i in range(n_iters)]
+    # criterion = nn.NLLLoss()
+    while parameters['epoch'] < parameters['epochs']:
+        parameters['epoch_start_time'] = time.time()
+        # parameters['model'].train()  # Turn on the train mode
+        enc_total_loss = 0.
+        cls0_total_loss = 0.
+        cls1_total_loss = 0.
+        parameters['log_interval_time'] = time.time()
+        # ntokens = len(parameters['embedder'].index2word)
+        parameters['epoch'] += 1
+        batch_num = 0
+        numb_sent = 0
+        prev_sent = 0
+        #print(len(train_data_loader.dataset))
+        for batch in train_data_loader:  # parameters['batchs']
+            # print('debut du batch')
+            # print(batch)
+            # print(len(train_data_loader[batch[0]][0]))
+            # print(len(train_data_loader[batch[1]][0]))
+            # batch = parameters['collate_fn']([train_data_loader[i] for i in batch])
+            enc_target = batch[0]
+            cls_target = batch[1]
+            # print(cls_target)
+            parameters['model'].train()
+            #print(batch[0].shape)
+            numb_sent += batch[0].size(1)
+            #print('num sentence ajouté '+str(batch[0].size(1)))
+            batch_num +=1
+            parameters['batch_start_time'] = time.time()
+            if type(parameters['optimizer']) is dict:
+                for model, optimizer in parameters['optimizer'].items():
+                    optimizer.zero_grad()
+            else:
+                parameters['optimizer'].zero_grad()
+            # print(batch_num)
+            enc_loss = 0
+            cls0_loss = 0
+            cls1_loss = 0
+            # print('batch structure')
+            # print(batch[0].shape)
+            # print(batch[1].shape)
+            output, encoder_hidden, value_out, class_out = parameters['model'](batch)
+            #functions.add_to_execution_file(parameters, 'La phrase et son output')
+            #sentences, values = training_functions.tensor_to_sentences(output, parameters['embedder'].index2word)
+            #functions.add_to_execution_file(parameters, str(target[0]))
+            #functions.add_to_execution_file(parameters, str(sentences))
+            #functions.add_to_execution_file(parameters, str(values))
+            #functions.add_to_execution_file(parameters, 'Fin phrase et son output')
+            for di in range(len(output)):
+                # print(str(output[di].shape)+" "+str(enc_target[di].shape))
+                enc_loss += parameters['encoder_criterion'](output[di], enc_target[di])  # voir pourquoi unsqueeze
+                # batch[0][di] is the target
+            enc_loss = enc_loss/len(output)
+            # print(class_out[:,0])
+            # print(cls_target[:,0])
+            cls0_loss += parameters['classifier_criterion'](class_out[:, 0], cls_target[:, 0])
+            cls1_loss += parameters['classifier_criterion'](class_out[:, 1], cls_target[:, 1])
+            #print('/ len(target) before backward()') # /len(target) before backward()
+
+            loss = alpha*enc_loss + beta*cls0_loss + ceta*cls1_loss
+            loss.backward()
+            if 'grad_norm' in parameters and parameters['grad_norm']:
+                parameters.grad_norm(parameters['model'].parameters())
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+                # functions.add_to_execution_file(parameters, 'Fin de grad_norm  ' + str(
+                #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
+                # parameters['tmps_form_last_step'] = time.time()
+            if parameters['scheduler'] is not None:
+                if type(parameters['scheduler']) is dict:
+                    for model, scheduler in parameters['scheduler'].items(): # créer dictionnaire plutot que liste
+                        if model+'_scheduler_interval_batch' in parameters and batch_num % \
+                                parameters[model+'_scheduler_interval_batch'] == 0 and batch_num != 0:
+                            # print('step')
+                            # print(parameters['scheduler'].get_last_lr())
+                            scheduler.step()
+                else:
+                    if 'scheduler_interval_batch' in parameters and batch_num % \
+                            parameters[
+                                'scheduler_interval_batch'] == 0 and batch_num != 0:
+                        # print('step')
+                        # print(parameters['scheduler'].get_last_lr())
+                        parameters['scheduler'].step()
+                        parameters['lr'] = parameters['scheduler'].get_last_lr()
+            if 'optimizer' in parameters:
+                if type(parameters['optimizer']) is dict:
+                    for model, optimizer in parameters['optimizer'].items():
+                        optimizer.step()
+                else:
+                    parameters['optimizer'].step()
+                # print(parameters['scheduler'].get_last_lr())
+                # functions.add_to_execution_file(parameters, 'Fin de optimizer  ' + str(
+                #     round(time.time() - parameters['tmps_form_last_step']),2) + ' secondes')
+                # parameters['tmps_form_last_step'] = time.time()
+            '''for name, param in parameters['model'].named_parameters():
+                if param.requires_grad:
+                    print(name, param.data)'''
+
+            # print(target)
+            # print(loss)
+            enc_total_loss += enc_loss.item()
+            cls0_total_loss += cls0_loss.item()
+            cls1_total_loss += cls1_loss.item()
             # print(batch_num)
             if 'log_interval_batch' in parameters and batch_num % parameters[
                 'log_interval_batch'] == 0 and batch_num > 0:

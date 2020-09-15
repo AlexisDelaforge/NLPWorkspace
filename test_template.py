@@ -94,6 +94,7 @@ model_params = dict(
     bidirectional=False,
     encode_size=512,
     max_length=max(dataloader_params['dataset'].size)
+    # max_length=10
 )
 
 print('somme emb param')
@@ -101,7 +102,7 @@ print(parameters['embedder'].weights)
 
 cross_entropy = nn.CrossEntropyLoss()
 
-name_execution = 'FromGPU4_MediumFixed'
+name_execution = 'FromGPU4_ShortFixed'
 
 #with open("./executions/" + name_execution + "/model.pkl", 'rb') as f:
     #model = pkl.load(f)
@@ -115,7 +116,8 @@ print('yoyo')
 
 #with open("./executions/" + name_execution + "/embedder.pkl", 'rb') as f:
     #embedder = pkl.load(f)
-for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch_20.pt"):
+# for f in glob.glob("./executions/" + str(name_execution) + "/models/Best_Model_Epoch_20.pt"):
+for f in glob.glob('./executions/FromGPU4_MediumFixed/models/Best_Model_Epoch_20.pt'):
     print('model import : '+str(f))
     model.load_state_dict(torch.load(str(f), map_location=device))
 # model = torch.load(str("executions/FromGPU4_Short/models/Best_Model_Epoch_18.pt"))
@@ -137,16 +139,18 @@ embedder.index2word = {v: k for k, v in embedder.word2index.items()}
 #     if param.requires_grad:
 #         print (name, param.data)
 sentence_to_test = [
-    ['the','virus','is','still','out','there','.'],
+    # ['the','virus','is','still','out','there','.'],
     # ['i','am','a','phd','student','in','neural','network','.'],
-    ['montpellier','is','a','city','in','france','.'],
-    ['fuck','uno','new','york','diabetes','labrador','.'],
-    ['i','will','never','let','you','down','.'],
-    ['indeed', ',', 'i', 'knew', 'it', 'well', '.'],
-    ['dolphins','can','not','hide','from','us','.'],
-    # ['is', 'anyone', 'interested', 'in', 'medical', 'deep', 'networking', 'with', 'nlp', '.'],
-    # ['i', 'am', 'looking', 'for', 'a', 'data', 'analytics', 'position', '.'],
-    # ['academic', 'researchers', 'need', 'to', 'worry', 'about', 'deep', 'learning', 'models', '!'],
+    # ['montpellier','is','a','city','in','france','.'],
+    # ['npi','means','non','-', 'pharmaceutical','intervention','.'],
+    # ['fuck','uno','new','york','diabetes','labrador','.'],
+    # ['i','will','never','let','you','down','.'],
+    # ['indeed', ',', 'i', 'knew', 'it', 'well', '.'],
+    # ['dolphins','can','not','hide','from','us','.'],
+    ['is', 'anyone', 'interested', 'in', 'medical', 'deep', 'networking', 'with', 'nlp', '.'],
+    ['i', 'am', 'looking', 'for', 'a', 'good', 'data', 'analytics', 'position', '.'],
+    ['academic', 'researchers', 'need', 'to', 'worry', 'about', 'deep', 'learning', 'models', '!'],
+    # ['as', 'the', 'sentences', 'get', 'longer', ',', 'the', 'quality', 'of', 'the', 'reconstruction', '(', 'decoding', ')', 'tends', 'to', 'not', 'be', 'sufficient', '.']
     # ['<unk>']
 ]
 # target = training_functions.word_to_idx(sentence_to_test, embedder.word2index).to(device)
